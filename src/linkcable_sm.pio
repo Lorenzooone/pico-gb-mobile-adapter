@@ -1,7 +1,7 @@
 ; Program name
 .program linkcable_sm
 
-.define WAITING_TIME 60
+.define WAITING_TIME 81
 
 .wrap_target
     wait 0 gpio 0 [0]       ; wait for falling edge
@@ -11,15 +11,18 @@
     set  x, 30
 after_transfer_set:
     out pins, 1             ; out the MSB bit
-    wait 1 gpio 0 [WAITING_TIME/2]       ; wait for rising edge
-    nop [WAITING_TIME/2]
+    wait 1 gpio 0 [WAITING_TIME/3]       ; wait for rising edge
+    nop [WAITING_TIME/3]
+    nop [WAITING_TIME/3]
 bitloop:
         in pins, 1          ; input bit
-        wait 0 gpio 0 [WAITING_TIME/2]   ; wait for falling edge
-        nop [WAITING_TIME/2]
+        wait 0 gpio 0 [WAITING_TIME/3]   ; wait for falling edge
+        nop [WAITING_TIME/3]
+        nop [WAITING_TIME/3]
         out pins, 1         ; output rest of the bits one by one
-        wait 1 gpio 0 [(WAITING_TIME/2)-1]   ; wait for rising edge
-        nop [WAITING_TIME/2]
+        wait 1 gpio 0 [(WAITING_TIME/3)-1]   ; wait for rising edge
+        nop [WAITING_TIME/3]
+        nop [WAITING_TIME/3]
     jmp x-- bitloop         ; loop through the rest of the bits
     in pins, 1              ; input rest of the bits one by one
     push noblock            ; push the received value to pico
