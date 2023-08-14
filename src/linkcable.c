@@ -28,6 +28,12 @@ void linkcable_reset(void) {
     pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, true);
 }
 
+void linkcable_set_is_32(uint32_t is_32) {
+#ifdef STACKSMASHING
+    linkcable_select_mode(LINKCABLE_PIO, LINKCABLE_SM, is_32);
+#endif
+}
+
 void linkcable_init(irq_handler_t onDataReceive) {
 #ifdef STACKSMASHING
     linkcable_sm_program_init(LINKCABLE_PIO, LINKCABLE_SM, linkcable_pio_initial_pc = pio_add_program(LINKCABLE_PIO, &linkcable_sm_program));

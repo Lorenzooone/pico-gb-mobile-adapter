@@ -38,8 +38,10 @@ void receive_data_commit(void) {
 // link cable
 bool link_cable_data_received = false;
 void link_cable_ISR(void) {
+    LED_ON;
     linkcable_send(protocol_data_process(linkcable_receive()));
     link_cable_data_received = true;
+    LED_OFF;
 }
 
 int64_t link_cable_watchdog(alarm_id_t id, void *user_data) {
@@ -189,7 +191,7 @@ int main(void) {
 
     linkcable_init(link_cable_ISR);
 
-    add_alarm_in_us(MS(300), link_cable_watchdog, NULL, true);
+    //add_alarm_in_us(MS(300), link_cable_watchdog, NULL, true);
 
     LED_OFF;
 

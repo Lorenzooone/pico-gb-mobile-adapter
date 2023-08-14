@@ -44,7 +44,7 @@ enum printer_state {
 };
 
 uint8_t protocol_data_init();
-uint8_t protocol_data_process(uint8_t data_in);
+uint32_t protocol_data_process(uint32_t data_in);
 void protocol_reset();
 
 #endif
