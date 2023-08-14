@@ -1,7 +1,7 @@
 ; Program name
 .program linkcable_sm
 
-.define WAITING_TIME 40
+.define WAITING_TIME 60
 
 .wrap_target
     wait 0 gpio 0 [0]       ; wait for falling edge
