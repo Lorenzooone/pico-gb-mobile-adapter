@@ -9,6 +9,7 @@
 #define LINKCABLE_SM        0
 
 #define LINKCABLE_BITS      8
+#define LINKCABLE_BITS_FULL 32
 
 #define CABLE_PINS_START    0
 

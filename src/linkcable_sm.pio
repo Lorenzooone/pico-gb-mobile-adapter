@@ -7,9 +7,10 @@
 .wrap_target
     wait 0 gpio 0 [0]       ; wait for falling edge
     pull noblock            ; pull value for transmission from pico
-    mov x, y
-    jmp !x single_byte_transfers_set
     set  x, 30
+    jmp !y after_transfer_set
+    set  x, 6
+    out null, 24            ; shift left by 24
 after_transfer_set:
     out pins, 1             ; out the MSB bit
     wait 1 gpio 0 [WAITING_TIME/WAITING_TIME_DIVIDER]       ; wait for rising edge
@@ -27,19 +28,13 @@ bitloop:
     irq 0
 .wrap
 
-single_byte_transfers_set:
-    set  x, 6
-    out null, 24            ; shift left by 24
-    jmp after_transfer_set
-
-
 % c-sdk {
 #define PIN_SCK             0
 #define PIN_SIN             1
 #define PIN_SOUT            2
 
 static inline void linkcable_select_mode(PIO pio, uint sm, uint is_32) {
-    pio_sm_exec(pio, sm, pio_encode_set(pio_y, is_32));
+    pio_sm_exec(pio, sm, pio_encode_set(pio_y, !is_32));
 }
 
 static inline void linkcable_sm_program_init(PIO pio, uint sm, uint offset) {
@@ -49,11 +44,11 @@ static inline void linkcable_sm_program_init(PIO pio, uint sm, uint offset) {
 
     sm_config_set_in_pins(&c, PIN_SIN);
     pio_sm_set_consecutive_pindirs(pio, sm, PIN_SIN, 1, false);
-    sm_config_set_in_shift(&c, false, false, 32);
+    sm_config_set_in_shift(&c, false, false, LINKCABLE_BITS_FULL);
 
     sm_config_set_out_pins(&c, PIN_SOUT, 1);
     pio_sm_set_consecutive_pindirs(pio, sm, PIN_SOUT, 1, true);
-    sm_config_set_out_shift(&c, false, false, 32);
+    sm_config_set_out_shift(&c, false, false, LINKCABLE_BITS_FULL);
 
     sm_config_set_clkdiv(&c, 5);                // Set clock division
 
