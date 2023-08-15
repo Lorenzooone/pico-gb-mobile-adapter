@@ -21,7 +21,7 @@ static uint64_t saved_time;
 
 static void linkcable_isr(void) {
     uint64_t curr_time = time_us_64();
-    uint64_t dest_time = curr_time + ((curr_time - saved_time) / saved_bits);
+    uint64_t dest_time = curr_time + ((curr_time - saved_time + saved_bits - 1) / saved_bits);
     if (linkcable_irq_handler) linkcable_irq_handler();
     if (pio_interrupt_get(LINKCABLE_PIO, 0)) pio_interrupt_clear(LINKCABLE_PIO, 0);
     curr_time = time_us_64();
