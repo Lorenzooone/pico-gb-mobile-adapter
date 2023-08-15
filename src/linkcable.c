@@ -11,12 +11,23 @@
     #include "linkcable.pio.h"
 #endif
 
+#define DEFAULT_SAVED_BITS 8
+
 static irq_handler_t linkcable_irq_handler = NULL;
 static uint32_t linkcable_pio_initial_pc = 0;
+static uint saved_bits = DEFAULT_SAVED_BITS;
 
 static void linkcable_isr(void) {
     if (linkcable_irq_handler) linkcable_irq_handler();
     if (pio_interrupt_get(LINKCABLE_PIO, 0)) pio_interrupt_clear(LINKCABLE_PIO, 0);
+}
+
+uint32_t linkcable_receive(void) {
+    return pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM) & ((1 << saved_bits) - 1);
+}
+
+void linkcable_send(uint32_t data) {
+    pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, (data << (32 - saved_bits)));
 }
 
 void clean_linkcable_fifos(void) {
@@ -33,14 +44,19 @@ void linkcable_reset(void) {
 }
 
 void linkcable_set_is_32(uint32_t is_32) {
+    if(is_32)
+        saved_bits = 32;
+    else
+        saved_bits = 8;
 #ifdef STACKSMASHING
-    linkcable_select_mode(LINKCABLE_PIO, LINKCABLE_SM, is_32);
+    linkcable_select_mode(LINKCABLE_PIO, LINKCABLE_SM, saved_bits);
 #endif
 }
 
 void linkcable_init(irq_handler_t onDataReceive) {
+    saved_bits = DEFAULT_SAVED_BITS;
 #ifdef STACKSMASHING
-    linkcable_sm_program_init(LINKCABLE_PIO, LINKCABLE_SM, linkcable_pio_initial_pc = pio_add_program(LINKCABLE_PIO, &linkcable_sm_program));
+    linkcable_sm_program_init(LINKCABLE_PIO, LINKCABLE_SM, linkcable_pio_initial_pc = pio_add_program(LINKCABLE_PIO, &linkcable_sm_program), DEFAULT_SAVED_BITS);
 #else
     linkcable_program_init(LINKCABLE_PIO, LINKCABLE_SM, linkcable_pio_initial_pc = pio_add_program(LINKCABLE_PIO, &linkcable_program), CABLE_PINS_START);
 #endif

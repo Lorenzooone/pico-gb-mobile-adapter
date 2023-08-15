@@ -13,14 +13,8 @@
 
 #define CABLE_PINS_START    0
 
-static inline uint32_t linkcable_receive(void) {
-    return pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM);
-}
-
-static inline void linkcable_send(uint32_t data) {
-    pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, data);
-}
-
+uint32_t linkcable_receive(void);
+void linkcable_send(uint32_t data);
 void clean_linkcable_fifos(void);
 void linkcable_set_is_32(uint32_t is_32);
 void linkcable_reset(void);

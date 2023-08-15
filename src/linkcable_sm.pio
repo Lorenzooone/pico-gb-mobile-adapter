@@ -7,11 +7,7 @@
 .wrap_target
     wait 0 gpio 0 [0]       ; wait for falling edge
     pull noblock            ; pull value for transmission from pico
-    set  x, 30
-    jmp !y after_transfer_set
-    set  x, 6
-    out null, 24            ; shift left by 24
-after_transfer_set:
+    mov x, y
     out pins, 1             ; out the MSB bit
     wait 1 gpio 0 [0]       ; wait for rising edge
 bitloop:
@@ -34,11 +30,11 @@ bitloop:
 #define PIN_SIN             1
 #define PIN_SOUT            2
 
-static inline void linkcable_select_mode(PIO pio, uint sm, uint is_32) {
-    pio_sm_exec(pio, sm, pio_encode_set(pio_y, !is_32));
+static inline void linkcable_select_mode(PIO pio, uint sm, uint num_bits) {
+    pio_sm_exec(pio, sm, pio_encode_set(pio_y, num_bits - 2));
 }
 
-static inline void linkcable_sm_program_init(PIO pio, uint sm, uint offset) {
+static inline void linkcable_sm_program_init(PIO pio, uint sm, uint offset, uint num_bits) {
     pio_sm_config c = linkcable_sm_program_get_default_config(offset);
 
     pio_sm_set_consecutive_pindirs(pio, sm, PIN_SCK, 1, false);
@@ -58,7 +54,7 @@ static inline void linkcable_sm_program_init(PIO pio, uint sm, uint offset) {
     pio_gpio_init(pio, PIN_SOUT);
 
     pio_sm_init(pio, sm, offset, &c);
-    linkcable_select_mode(pio, sm, 0);
+    linkcable_select_mode(pio, sm, num_bits);
 
 //    pio_sm_set_enabled(pio, sm, true);          // Set the state machine running (commented out, I'll start this in the C)
 }
