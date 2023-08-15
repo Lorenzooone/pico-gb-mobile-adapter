@@ -52,7 +52,7 @@ static inline void linkcable_sm_program_init(PIO pio, uint sm, uint offset, uint
     pio_sm_set_consecutive_pindirs(pio, sm, PIN_SOUT, 1, true);
     sm_config_set_out_shift(&c, false, false, LINKCABLE_BITS_FULL);
 
-    //sm_config_set_clkdiv(&c, 5);                // Set clock division
+    sm_config_set_clkdiv(&c, 5);                // Set clock division
 
     pio_gpio_init(pio, PIN_SCK);
     pio_gpio_init(pio, PIN_SIN);
