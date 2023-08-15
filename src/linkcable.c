@@ -23,11 +23,17 @@ static void linkcable_isr(void) {
 }
 
 uint32_t linkcable_receive(void) {
-    return pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM) & ((1 << saved_bits) - 1);
+    uint32_t retval = (pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM) & ((1 << saved_bits) - 1));
+    //if(saved_bits > 16)
+    //    retval = (retval << 16) | (retval >> 16);
+    return retval;
 }
 
 void linkcable_send(uint32_t data) {
-    pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, (data << (32 - saved_bits)));
+    uint32_t sendval = (data << (32 - saved_bits));
+    //if(saved_bits > 16)
+    //    sendval = (sendval << 16) | (sendval >> 16);
+    pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, sendval);
 }
 
 void clean_linkcable_fifos(void) {
