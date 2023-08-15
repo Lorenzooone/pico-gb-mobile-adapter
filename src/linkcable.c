@@ -2,6 +2,7 @@
 
 #include "hardware/pio.h"
 #include "hardware/irq.h"
+#include "hardware/timer.h"
 
 #include "linkcable.h"
 
@@ -16,23 +17,33 @@
 static irq_handler_t linkcable_irq_handler = NULL;
 static uint32_t linkcable_pio_initial_pc = 0;
 static uint saved_bits = DEFAULT_SAVED_BITS;
+static uint64_t saved_time;
 
 static void linkcable_isr(void) {
+    uint64_t curr_time = time_us_64();
+    uint64_t dest_time = curr_time + ((curr_time - saved_time) / saved_bits);
     if (linkcable_irq_handler) linkcable_irq_handler();
     if (pio_interrupt_get(LINKCABLE_PIO, 0)) pio_interrupt_clear(LINKCABLE_PIO, 0);
+    curr_time = time_us_64();
+    if(dest_time > curr_time)
+        busy_wait_us(dest_time - curr_time);
+#ifdef STACKSMASHING
+    linkcable_activate(LINKCABLE_PIO, LINKCABLE_SM);
+#endif
+}
+
+static void linkcable_time_isr(void) {
+    saved_time = time_us_64();
+    if (pio_interrupt_get(LINKCABLE_PIO, 1)) pio_interrupt_clear(LINKCABLE_PIO, 1);
 }
 
 uint32_t linkcable_receive(void) {
     uint32_t retval = (pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM) & ((1 << saved_bits) - 1));
-    //if(saved_bits > 16)
-    //    retval = (retval << 16) | (retval >> 16);
     return retval;
 }
 
 void linkcable_send(uint32_t data) {
     uint32_t sendval = (data << (32 - saved_bits));
-    //if(saved_bits > 16)
-    //    sendval = (sendval << 16) | (sendval >> 16);
     pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, sendval);
 }
 
@@ -75,4 +86,7 @@ void linkcable_init(irq_handler_t onDataReceive) {
         irq_set_exclusive_handler(PIO0_IRQ_0, linkcable_isr);
         irq_set_enabled(PIO0_IRQ_0, true);
     }
+    pio_set_irq1_source_enabled(LINKCABLE_PIO, pis_interrupt1, true);
+    irq_set_exclusive_handler(PIO0_IRQ_1, linkcable_time_isr);
+    irq_set_enabled(PIO0_IRQ_1, true);
 }

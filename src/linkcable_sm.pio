@@ -7,6 +7,7 @@
 
 .wrap_target
     wait 0 gpio 0 [0]       ; wait for falling edge
+    irq 1
     pull noblock            ; pull value for transmission from pico
     mov x, y
     out pins, 1             ; out the MSB bit
@@ -20,11 +21,9 @@ bitloop:
     in pins, 1              ; input rest of the bits one by one
     push noblock            ; push the received value to pico
     irq 0
-    set x, ((TOTAL_SLEEP_CYCLES/(WAIT_PER_NOP * NUM_NOPS)) - 1)
+    set x, 0
 sleeploop:
-    nop [WAIT_PER_NOP]
-    nop [WAIT_PER_NOP]
-    jmp x-- sleeploop
+    jmp !x sleeploop
 .wrap
 
 % c-sdk {
@@ -34,6 +33,10 @@ sleeploop:
 
 static inline void linkcable_select_mode(PIO pio, uint sm, uint num_bits) {
     pio_sm_exec(pio, sm, pio_encode_set(pio_y, num_bits - 2));
+}
+
+static inline void linkcable_activate(PIO pio, uint sm) {
+    pio_sm_exec(pio, sm, pio_encode_set(pio_x, 1));
 }
 
 static inline void linkcable_sm_program_init(PIO pio, uint sm, uint offset, uint num_bits) {
