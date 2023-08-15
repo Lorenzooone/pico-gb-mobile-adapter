@@ -21,6 +21,7 @@ static inline void linkcable_send(uint32_t data) {
     pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, data);
 }
 
+void clean_linkcable_fifos(void);
 void linkcable_set_is_32(uint32_t is_32);
 void linkcable_reset(void);
 void linkcable_init(irq_handler_t onReceive);

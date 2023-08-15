@@ -19,6 +19,10 @@ static void linkcable_isr(void) {
     if (pio_interrupt_get(LINKCABLE_PIO, 0)) pio_interrupt_clear(LINKCABLE_PIO, 0);
 }
 
+void clean_linkcable_fifos(void) {
+    pio_sm_clear_fifos(LINKCABLE_PIO, LINKCABLE_SM);
+}
+
 void linkcable_reset(void) {
     pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, false);
     pio_sm_clear_fifos(LINKCABLE_PIO, LINKCABLE_SM);

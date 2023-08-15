@@ -39,7 +39,9 @@ void receive_data_commit(void) {
 bool link_cable_data_received = false;
 void link_cable_ISR(void) {
     LED_ON;
-    linkcable_send(protocol_data_process(linkcable_receive()));
+    uint32_t data = protocol_data_process(linkcable_receive());
+    clean_linkcable_fifos();
+    linkcable_send(data);
     link_cable_data_received = true;
     LED_OFF;
 }
