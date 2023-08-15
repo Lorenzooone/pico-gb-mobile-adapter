@@ -13,15 +13,16 @@
     out null, 24            ; shift left by 24
 after_transfer_set:
     out pins, 1             ; out the MSB bit
-    wait 1 gpio 0 [WAITING_TIME/WAITING_TIME_DIVIDER]       ; wait for rising edge
-    nop [WAITING_TIME/WAITING_TIME_DIVIDER]
+    wait 1 gpio 0 [0]       ; wait for rising edge
 bitloop:
         in pins, 1          ; input bit
-        wait 0 gpio 0 [WAITING_TIME/WAITING_TIME_DIVIDER]   ; wait for falling edge
-        nop [WAITING_TIME/WAITING_TIME_DIVIDER]
+        nop [(WAITING_TIME)/WAITING_TIME_DIVIDER]
+        nop [(WAITING_TIME)/WAITING_TIME_DIVIDER]
+        wait 0 gpio 0 [1]   ; wait for falling edge
         out pins, 1         ; output rest of the bits one by one
-        wait 1 gpio 0 [(WAITING_TIME/WAITING_TIME_DIVIDER)-1]   ; wait for rising edge
-        nop [WAITING_TIME/WAITING_TIME_DIVIDER]
+        nop [(WAITING_TIME - 1)/WAITING_TIME_DIVIDER]
+        nop [(WAITING_TIME - 1)/WAITING_TIME_DIVIDER]
+        wait 1 gpio 0 [0]   ; wait for rising edge
     jmp x-- bitloop         ; loop through the rest of the bits
     in pins, 1              ; input rest of the bits one by one
     push noblock            ; push the received value to pico
