@@ -25,8 +25,10 @@ static void linkcable_isr(void) {
     if (linkcable_irq_handler) linkcable_irq_handler();
     if (pio_interrupt_get(LINKCABLE_PIO, 0)) pio_interrupt_clear(LINKCABLE_PIO, 0);
     curr_time = time_us_64();
-    if(dest_time > curr_time)
-        busy_wait_us(dest_time - curr_time);
+    if(dest_time > curr_time) {
+        if((dest_time - curr_time) < (100*1000))
+            busy_wait_us(dest_time - curr_time);
+    }
 #ifdef STACKSMASHING
     linkcable_activate(LINKCABLE_PIO, LINKCABLE_SM);
 #endif
