@@ -53,13 +53,22 @@ void clean_linkcable_fifos(void) {
     pio_sm_clear_fifos(LINKCABLE_PIO, LINKCABLE_SM);
 }
 
-void linkcable_reset(void) {
+void linkcable_enable(void) {
+    pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, true);
+}
+
+void linkcable_disable(void) {
+    linkcable_reset(false);
+}
+
+void linkcable_reset(bool re_enable) {
     pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, false);
     pio_sm_clear_fifos(LINKCABLE_PIO, LINKCABLE_SM);
     pio_sm_restart(LINKCABLE_PIO, LINKCABLE_SM);
     pio_sm_clkdiv_restart(LINKCABLE_PIO, LINKCABLE_SM);
     pio_sm_exec(LINKCABLE_PIO, LINKCABLE_SM, pio_encode_jmp(linkcable_pio_initial_pc));
-    pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, true);
+    if(re_enable)
+        pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, true);
 }
 
 void linkcable_set_is_32(uint32_t is_32) {

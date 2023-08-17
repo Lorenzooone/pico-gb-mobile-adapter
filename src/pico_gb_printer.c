@@ -9,6 +9,7 @@
 #include "tusb.h"
 #include "usb_descriptors.h"
 #include "bsp/board.h"
+#include "pico_mobile_adapter.h"
 
 #include "gb_printer.h"
 #include "linkcable.h"
@@ -62,13 +63,6 @@ void led_blinking_task(void);
 void cdc_task(void);
 void webserial_task(void);
 
-// link cable
-void link_cable_ISR(void) {
-    uint32_t data = protocol_data_process(linkcable_receive());
-    clean_linkcable_fifos();
-    linkcable_send(data);
-}
-
 // main loop
 int main(void) {
     board_init();
@@ -80,9 +74,12 @@ int main(void) {
     // Initialize tinyusb
     tusb_init();
 
+    pico_mobile_init();
     linkcable_init(link_cable_ISR);
+    linkcable_enable();
 
     while (true) {
+        pico_mobile_loop();
         tud_task(); // tinyusb device task
         cdc_task();
         webserial_task();
