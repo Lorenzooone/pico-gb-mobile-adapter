@@ -275,6 +275,7 @@ void led_blinking_task(void)
     if ( board_millis() - start_ms < blink_interval_ms) return; // not enough time
     start_ms += blink_interval_ms;
 
-    board_led_write(led_state);
+    // LEDs lead to instability. Why? IDK. BUT DON'T USE LEDS!
+    //board_led_write(led_state);
     led_state = 1 - led_state; // toggle
 }
