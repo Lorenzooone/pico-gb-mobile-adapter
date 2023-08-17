@@ -14,6 +14,8 @@
 #include "gb_printer.h"
 #include "linkcable.h"
 
+//#define OVERCLOCK
+
 bool debug_enable = ENABLE_DEBUG;
 bool speed_240_MHz = false;
 
@@ -38,12 +40,10 @@ void receive_data_commit(void) {
 // link cable
 bool link_cable_data_received = false;
 void link_cable_ISR(void) {
-    LED_ON;
     uint32_t data = protocol_data_process(linkcable_receive());
     clean_linkcable_fifos();
     linkcable_send(data);
     link_cable_data_received = true;
-    LED_OFF;
 }
 
 int64_t link_cable_watchdog(alarm_id_t id, void *user_data) {
@@ -165,7 +165,9 @@ void fs_close_custom(struct fs_file *file) {
 
 // main loop
 int main(void) {
+#ifdef OVERCLOCK
     speed_240_MHz = set_sys_clock_khz(240000, false);
+#endif
 
     // For toggle_led
 #ifdef LED_PIN
