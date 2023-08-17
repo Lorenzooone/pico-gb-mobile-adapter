@@ -10,14 +10,15 @@
 #include "usb_descriptors.h"
 #include "bsp/board.h"
 
-#include "globals.h"
-
 #include "gb_printer.h"
 #include "linkcable.h"
 
 //--------------------------------------------------------------------+
 // MACRO CONSTANT TYPEDEF
 //--------------------------------------------------------------------+
+
+//#define USE_LEDS
+// LEDs lead to instability. Why? IDK. BUT DON'T USE LEDs!
 
 /* Blink pattern
  * - 250 ms  : device not mounted
@@ -52,7 +53,6 @@ const tusb_desc_webusb_url_t desc_url =
   .url             = URL
 };
 
-bool debug_enable = ENABLE_DEBUG;
 bool speed_240_MHz = false;
 
 //------------- prototypes -------------//
@@ -111,7 +111,7 @@ void echo_all(uint8_t buf[], uint32_t count)
         }
         tud_cdc_write_flush();
     }
-    }
+}
 
 //--------------------------------------------------------------------+
 // Device callbacks
@@ -182,7 +182,9 @@ bool tud_vendor_control_xfer_cb(uint8_t rhport, uint8_t stage, tusb_control_requ
             // Always lit LED if connected
             if ( web_serial_connected )
             {
+            #ifdef USE_LEDS
                 board_led_write(true);
+            #endif
                 blink_interval_ms = BLINK_ALWAYS_ON;
 
                 // tud_vendor_write_str("\r\nTinyUSB WebUSB device example\r\n");
@@ -268,6 +270,7 @@ void tud_cdc_rx_cb(uint8_t itf)
 //--------------------------------------------------------------------+
 void led_blinking_task(void)
 {
+#ifdef USE_LEDS
     static uint32_t start_ms = 0;
     static bool led_state = false;
 
@@ -275,7 +278,7 @@ void led_blinking_task(void)
     if ( board_millis() - start_ms < blink_interval_ms) return; // not enough time
     start_ms += blink_interval_ms;
 
-    // LEDs lead to instability. Why? IDK. BUT DON'T USE LEDS!
-    //board_led_write(led_state);
+    board_led_write(led_state);
     led_state = 1 - led_state; // toggle
+#endif
 }

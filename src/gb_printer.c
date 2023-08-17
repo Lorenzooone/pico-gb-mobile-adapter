@@ -4,15 +4,10 @@
 
 #include "gb_printer.h"
 #include "linkcable.h"
-#include "globals.h"
 
 volatile enum printer_state printer_state = PRN_STATE_WAIT_FOR_SYNC_1;
 
-#define PRINTER_RESET           (printer_state = PRN_STATE_WAIT_FOR_SYNC_1)
-
-extern void receive_data_reset();
-extern void receive_data_write(uint8_t b);
-extern void receive_data_commit();
+#define PRINTER_RESET (printer_state = PRN_STATE_WAIT_FOR_SYNC_1)
 
 // printer packet state machine
 void protocol_reset() {
