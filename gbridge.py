@@ -212,6 +212,7 @@ class GBridgeSocket:
         return out_bytes
 
     def __init__(self):
+        self.print_exception = True
         self.socket = []
         self.socket_type = []
         for i in range(GBridgeSocket.MOBILE_MAX_CONNECTIONS):
@@ -259,7 +260,8 @@ class GBridgeSocket:
 
             sock.bind(('', socket.htons(bindport)))
         except Exception as e:
-            print(e)
+            if self.print_exception:
+                print(e)
             return False
 
         self.socket[conn] = sock;
@@ -303,7 +305,9 @@ class GBridgeSocket:
         
         try:
             self.socket[conn].connect(conn_data)
-        except:
+        except Exception as e:
+            if self.print_exception:
+                print(e)
             return -1
         return 0
     
@@ -321,7 +325,9 @@ class GBridgeSocket:
         
         try:
             self.socket[conn].listen(1)
-        except:
+        except Exception as e:
+            if self.print_exception:
+                print(e)
             return False
         return True
     
@@ -343,7 +349,9 @@ class GBridgeSocket:
             self.socket[conn].shutdown()
             self.socket[conn].close()
             self.socket[conn] = new_sock
-        except:
+        except Exception as e:
+            if self.print_exception:
+                print(e)
             return False
         return True
     
@@ -366,13 +374,17 @@ class GBridgeSocket:
         
         try:
             sent = self.socket[conn].sendto(stream, 0, conn_data)
-        except:
+        except Exception as e:
+            if self.print_exception:
+                print(e)
             return -1
         return int(sent)
     
     def recv(self, data):
-        if(len(data) < 1):
+        if(len(data) < 3):
             return 0
+
+        size = (data[1] << 8) | data[2]
         
         conn = data[0]
         
@@ -383,17 +395,21 @@ class GBridgeSocket:
             return 0
 
         try:
-            result = self.socket[conn].recv(1, MSG_PEEK)
+            result = self.socket[conn].recv(1, socket.MSG_PEEK)
+            print(result)
             if(len(result) <= 0):
                 return 0
             result = self.socket[conn].recvfrom(size)
+            print(result)
             data_recv = result[0]
             source_recv = result[1]
             # Make sure at least one byte is in the buffer
             if(len(data_recv) == 0):
                 if self.socket_type[conn] == socket.SOCK_STREAM:
                     return -2
-        except:
+        except Exception as e:
+            if self.print_exception:
+                print(e)
             return -1
 
         return [data_recv, [(len(data_recv) >> 8) & 0xFF, data_recv & 0xFF] + GBridgeSocket.write_addr(source_recv)]
