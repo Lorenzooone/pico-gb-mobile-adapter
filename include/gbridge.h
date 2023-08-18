@@ -34,7 +34,6 @@ enum gbridge_cmd {
 };
 
 struct gbridge_data {
-    unsigned char size;
     unsigned char cmd;
     unsigned char *buffer;
 };

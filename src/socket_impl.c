@@ -99,8 +99,9 @@ static bool get_section(uint8_t* buffer, uint32_t size, bool run_callback, bool 
     return true;
 }
 
-static bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool expected_data, uint32_t limit) {
+static bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool expected_data, uint32_t limit, uint32_t* read_size) {
     bool try = true;
+    *read_size = 0;
     uint8_t cmd_data[] = {0, 0, 0};
     uint8_t checksum_data[] = {0, 0};
     uint32_t cmd_len = 3;
@@ -122,6 +123,7 @@ static bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool 
             cmd_size = limit;
         if(size > cmd_size)
             cmd_size = size;
+        *read_size = cmd_size;
         if(!get_section(buffer, cmd_size, run_callback, false))
             return false;
         if(!get_section(checksum_data, 2, run_callback, false))
@@ -203,9 +205,17 @@ static void send_x_bytes(const uint8_t* buffer, uint32_t size, bool run_callback
     }
 }
 
+static void debug_send(uint8_t value)
+{
+    uint8_t buffer[1];
+    buffer[0] = value;
+    set_data_out(buffer, 1, 0);
+}
+
 bool impl_sock_open(void *user, unsigned conn, enum mobile_socktype type, enum mobile_addrtype addrtype, unsigned bindport)
 {
     uint8_t buffer[BUF_SIZE];
+    uint32_t result_size;
     (void)user;
     uint8_t cmd = GBRIDGE_PROT_MA_CMD_OPEN;
     buffer[0] = cmd;
@@ -213,44 +223,44 @@ bool impl_sock_open(void *user, unsigned conn, enum mobile_socktype type, enum m
     buffer[2] = type;
     buffer[3] = addrtype;
     buffer[4] = (bindport >> 8) & 0xFF;
-    buffer[5] = (bindport >> 0) & 0xFF;
+    buffer[5] = bindport & 0xFF;
     
     send_x_bytes(buffer, 6, true, true, true);
     
-    if(!get_x_bytes(buffer, 3, true, true, BUF_SIZE))
+    if(!get_x_bytes(buffer, 2, true, true, BUF_SIZE, &result_size))
         return false;
 
-    const struct gbridge_data* recv_data = (const struct gbridge_data*)buffer;
-    if (recv_data->size != 2)
+    if (result_size != 2)
         return false;
-    if (recv_data->cmd != cmd)
+    if (buffer[0] != cmd)
         return false;
-    bool res = recv_data->buffer[0] != 0;
-    return res;
+
+    return buffer[1];
 }
 
 void impl_sock_close(void *user, unsigned conn)
 {
     uint8_t buffer[BUF_SIZE];
+    uint32_t result_size;
     (void)user;
     uint8_t cmd = GBRIDGE_PROT_MA_CMD_CLOSE;
     buffer[0] = cmd;
     
     send_x_bytes(buffer, 2, true, true, true);
     
-    if(!get_x_bytes(buffer, 2, true, true, BUF_SIZE))
+    if(!get_x_bytes(buffer, 1, true, true, BUF_SIZE, &result_size))
         return;
 
-    const struct gbridge_data* recv_data = (const struct gbridge_data*)buffer;
-    if (recv_data->size != 1)
+    if (result_size != 1)
         return;
-    if (recv_data->cmd != cmd)
+    if (buffer[0] != cmd)
         return;
 }
 
 int impl_sock_connect(void* user, unsigned conn, const struct mobile_addr *addr)
 {
     uint8_t buffer[BUF_SIZE];
+    uint32_t result_size;
     (void)user;
     uint8_t cmd = GBRIDGE_PROT_MA_CMD_CONNECT;
     buffer[0] = cmd;
@@ -259,21 +269,21 @@ int impl_sock_connect(void* user, unsigned conn, const struct mobile_addr *addr)
     
     send_x_bytes(buffer, addrlen + 2, true, true, true);
 
-    if(!get_x_bytes(buffer, 3, true, true, BUF_SIZE))
+    if(!get_x_bytes(buffer, 2, true, true, BUF_SIZE, &result_size))
         return -1;
 
-    const struct gbridge_data *recv_data = (const struct gbridge_data*)buffer;
-    if (recv_data->size != 2)
+    if (result_size != 2)
         return -1;
-    if (recv_data->cmd != cmd)
+    if (buffer[0] != cmd)
         return -1;
 
-    return (char)recv_data->buffer[0];
+    return (char)buffer[1];
 }
 
 bool impl_sock_listen(void* user, unsigned conn)
 {
     uint8_t buffer[BUF_SIZE];
+    uint32_t result_size;
     (void)user;
     uint8_t cmd = GBRIDGE_PROT_MA_CMD_LISTEN;
     buffer[0] = cmd;
@@ -281,21 +291,21 @@ bool impl_sock_listen(void* user, unsigned conn)
 
     send_x_bytes(buffer, 2, true, true, true);
 
-    if(!get_x_bytes(buffer, 3, true, true, BUF_SIZE))
+    if(!get_x_bytes(buffer, 2, true, true, BUF_SIZE, &result_size))
         return false;
 
-    const struct gbridge_data* recv_data = (const struct gbridge_data*)buffer;
-    if (recv_data->size != 2)
+    if (result_size != 2)
         return false;
-    if (recv_data->cmd != cmd)
+    if (buffer[0] != cmd)
         return false;
 
-    return recv_data->buffer[0];
+    return buffer[1];
 }
 
 bool impl_sock_accept(void* user, unsigned conn)
 {
     uint8_t buffer[BUF_SIZE];
+    uint32_t result_size;
     (void)user;
     uint8_t cmd = GBRIDGE_PROT_MA_CMD_ACCEPT;
     buffer[0] = cmd;
@@ -303,21 +313,21 @@ bool impl_sock_accept(void* user, unsigned conn)
 
     send_x_bytes(buffer, 2, true, true, true);
 
-    if(!get_x_bytes(buffer, 3, true, true, BUF_SIZE))
+    if(!get_x_bytes(buffer, 2, true, true, BUF_SIZE, &result_size))
         return false;
 
-    const struct gbridge_data* recv_data = (const struct gbridge_data*)buffer;
-    if (recv_data->size != 2)
+    if (result_size != 2)
         return false;
-    if (recv_data->cmd != cmd)
+    if (buffer[0] != cmd)
         return false;
 
-    return recv_data->buffer[0];
+    return buffer[1];
 }
 
 int impl_sock_send(void* user, unsigned conn, const void *data, const unsigned size, const struct mobile_addr *addr)
 {
     uint8_t buffer[BUF_SIZE];
+    uint32_t result_size;
     (void)user;
     uint8_t cmd = GBRIDGE_PROT_MA_CMD_SEND;
     buffer[0] = cmd;
@@ -328,21 +338,21 @@ int impl_sock_send(void* user, unsigned conn, const void *data, const unsigned s
 
     send_x_bytes(data, size, true, true, false);
 
-    if(!get_x_bytes(buffer, 4, true, true, BUF_SIZE))
+    if(!get_x_bytes(buffer, 3, true, true, BUF_SIZE, &result_size))
         return -1;
 
-    const struct gbridge_data* recv_data = (const struct gbridge_data*)buffer;
-    if (recv_data->size != 3)
+    if (result_size != 3)
         return -1;
-    if (recv_data->cmd != cmd)
+    if (buffer[0] != cmd)
         return -1;
 
-    return (recv_data->buffer[0] << 8) | (recv_data->buffer[1]);
+    return (buffer[1] << 8) | (buffer[2]);
 }
 
 int impl_sock_recv(void* user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr)
 {
     uint8_t buffer[BUF_SIZE];
+    uint32_t result_size;
     (void)user;
     uint8_t cmd = GBRIDGE_PROT_MA_CMD_RECV;
     buffer[0] = cmd;
@@ -352,20 +362,19 @@ int impl_sock_recv(void* user, unsigned conn, void *data, unsigned size, struct 
     
     send_x_bytes(buffer, 4, true, true, true);
 
-    if(!get_x_bytes(buffer, 4, true, true, BUF_SIZE))
+    if(!get_x_bytes(buffer, 3, true, true, BUF_SIZE, &result_size))
         return -1;
 
-    const struct gbridge_data* recv_data = (const struct gbridge_data*)buffer;
-    if (recv_data->size < 3)
+    if (result_size < 3)
         return -1;
-    if (recv_data->cmd != cmd)
+    if (buffer[0] != cmd)
         return -1;
 
-    int16_t sent_size = (recv_data->buffer[0] << 8) | (recv_data->buffer[1]);
-    unsigned recv_addrlen = address_read(addr, recv_data->buffer + 2, recv_data->size - 3);
+    int16_t sent_size = (buffer[1] << 8) | (buffer[2]);
+    unsigned recv_addrlen = address_read(addr, buffer + 3, result_size - 3);
     if (!recv_addrlen)
         return -1;
-    if (recv_data->size != recv_addrlen + 3)
+    if (result_size != recv_addrlen + 3)
         return -1;
     if (sent_size <= 0)
         return -1;
@@ -373,7 +382,7 @@ int impl_sock_recv(void* user, unsigned conn, void *data, unsigned size, struct 
     if(size > sent_size)
         size = sent_size;
 
-    if(!get_x_bytes(buffer, size, true, false, size))
+    if(!get_x_bytes(buffer, size, true, false, size, &result_size))
         return -1;
 
     return sent_size;
