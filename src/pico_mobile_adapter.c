@@ -55,11 +55,14 @@ uint8_t get_data_out(bool* success) {
     return data;
 }
 
-void set_data_out(uint8_t* buffer, uint32_t size) {
-    for(int i = 0; i < size; i++) {
+uint32_t set_data_out(const uint8_t* buffer, uint32_t size, uint32_t pos) {
+    for(uint32_t i = pos; i < size; i++) {
+        if(((buffer_pos_out_inside + 1) % OUT_BUFFER_SIZE) == buffer_pos_out_outside)
+            return i;
         buffer_out[buffer_pos_out_inside++] = buffer[i];
         buffer_pos_out_inside %= OUT_BUFFER_SIZE;
     }
+    return size;
 }
 
 uint32_t get_data_in(void) {
@@ -116,13 +119,11 @@ void pico_mobile_init(upkeep_callback callback) {
     mobile_def_time_check_ms(mobile->adapter, impl_time_check_ms);
     mobile_def_sock_open(mobile->adapter, impl_sock_open);
     mobile_def_sock_close(mobile->adapter, impl_sock_close);
-#if 0
     mobile_def_sock_connect(mobile->adapter, impl_sock_connect);
     mobile_def_sock_listen(mobile->adapter, impl_sock_listen);
     mobile_def_sock_accept(mobile->adapter, impl_sock_accept);
     mobile_def_sock_send(mobile->adapter, impl_sock_send);
     mobile_def_sock_recv(mobile->adapter, impl_sock_recv);
-#endif
     mobile_def_update_number(mobile->adapter, impl_update_number);
 
     mobile_config_load(mobile->adapter);
