@@ -21,7 +21,6 @@ typedef void (*upkeep_callback) (void);
 struct mobile_user {
     struct mobile_adapter *adapter;
     enum mobile_action action;
-    upkeep_callback callback;
     unsigned long picow_clock_latch[MOBILE_MAX_TIMERS];
     uint8_t config_eeprom[EEPROM_SIZE];
 #ifdef USE_SOCKET
@@ -31,6 +30,11 @@ struct mobile_user {
     char number_peer[MOBILE_MAX_NUMBER_SIZE + 1];
 };
 
+uint8_t get_data_out(bool* success);
+void set_data_out(uint8_t* buffer, uint32_t size);
+uint32_t get_data_in(void);
+void set_data_in(uint8_t* buffer, uint32_t size);
+void call_upkeep_callback(void);
 void link_cable_ISR(void);
 void pico_mobile_init(upkeep_callback callback);
 void pico_mobile_loop(void);
