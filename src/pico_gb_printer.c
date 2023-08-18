@@ -11,7 +11,6 @@
 #include "bsp/board.h"
 #include "pico_mobile_adapter.h"
 
-#include "gb_printer.h"
 #include "linkcable.h"
 
 //--------------------------------------------------------------------+
@@ -62,6 +61,7 @@ void handle_input_data(void);
 void led_blinking_task(void);
 void cdc_task(void);
 void webserial_task(void);
+void loop_upkeep_functions(void);
 
 // main loop
 int main(void) {
@@ -74,19 +74,23 @@ int main(void) {
     // Initialize tinyusb
     tusb_init();
 
-    pico_mobile_init();
+    pico_mobile_init(loop_upkeep_functions);
     linkcable_init(link_cable_ISR);
     linkcable_enable();
 
     while (true) {
         pico_mobile_loop();
-        tud_task(); // tinyusb device task
-        cdc_task();
-        webserial_task();
-        led_blinking_task();
+        loop_upkeep_functions();
     }
 
     return 0;
+}
+
+void loop_upkeep_functions(void) {
+    tud_task(); // tinyusb device task
+    cdc_task();
+    webserial_task();
+    led_blinking_task();
 }
 
 // send characters to both CDC and WebUSB

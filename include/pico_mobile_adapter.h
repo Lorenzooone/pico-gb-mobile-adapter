@@ -16,9 +16,12 @@
 #define SOCK_TCP 1
 #define SOCK_UDP 2
 
+typedef void (*upkeep_callback) (void);
+
 struct mobile_user {
     struct mobile_adapter *adapter;
     enum mobile_action action;
+    upkeep_callback callback;
     unsigned long picow_clock_latch[MOBILE_MAX_TIMERS];
     uint8_t config_eeprom[EEPROM_SIZE];
 #ifdef USE_SOCKET
@@ -29,7 +32,7 @@ struct mobile_user {
 };
 
 void link_cable_ISR(void);
-void pico_mobile_init(void);
+void pico_mobile_init(upkeep_callback callback);
 void pico_mobile_loop(void);
 
 #endif /* PICO_MOBILE_ADAPTER_H_ */

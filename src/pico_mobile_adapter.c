@@ -9,6 +9,9 @@
 #include "linkcable.h"
 
 //#define USE_FLASH
+#define OUT_BUFFER_SIZE 0x100
+#define IN_BUFFER_SIZE 0x100
+#define IDLE_COMMAND 0xD2
 
 static void mobile_validate_relay(void);
 static void impl_debug_log(void *user, const char *line);
@@ -45,6 +48,47 @@ bool link_cable_data_received = false;
 
 struct mobile_user *mobile;
 
+uint32_t buffer_out[OUT_BUFFER_SIZE];
+uint32_t buffer_in[IN_BUFFER_SIZE];
+
+uint32_t buffer_pos_out_inside;
+uint32_t buffer_pos_out_outside;
+
+uint32_t buffer_pos_in_inside;
+uint32_t buffer_pos_in_outside;
+
+uint32_t get_data_out(bool* success) {
+    *success = 0;
+    uint32_t data = 0;
+    if(buffer_pos_out_inside != buffer_pos_out_outside) {
+        data = buffer_out[buffer_pos_out_outside++];
+        buffer_pos_out_outside %= OUT_BUFFER_SIZE;
+        *success = 1;
+    }
+    return data;
+}
+
+static void set_data_out(uint32_t data) {
+    buffer_out[buffer_pos_out_inside] = data;
+    buffer_pos_out_inside = (buffer_pos_out_inside + 1) % OUT_BUFFER_SIZE;
+}
+
+static uint32_t get_data_in(void) {
+    uint32_t data;
+    if(buffer_pos_in_inside == buffer_pos_in_outside)
+        data = IDLE_COMMAND;
+    else {
+        data = buffer_in[buffer_pos_in_inside];
+        buffer_pos_in_inside = (buffer_pos_in_inside + 1) % IN_BUFFER_SIZE;
+    }
+    return data;
+}
+
+void set_data_in(uint32_t data) {
+    buffer_in[buffer_pos_in_outside++] = data;
+    buffer_pos_in_outside %= IN_BUFFER_SIZE;
+}
+
 void link_cable_ISR(void) {
     uint32_t data;
     if(isLinkCable32){
@@ -56,9 +100,10 @@ void link_cable_ISR(void) {
     linkcable_send(data);
 }
 
-void pico_mobile_init(void) {
+void pico_mobile_init(upkeep_callback callback) {
     //Libmobile Variables
     mobile = malloc(sizeof(struct mobile_user));
+    mobile->callback = callback;
 
     memset(mobile->config_eeprom,0x00,sizeof(mobile->config_eeprom));
 #ifdef USE_FLASH
