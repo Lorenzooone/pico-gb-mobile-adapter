@@ -217,15 +217,28 @@ bool tud_vendor_control_complete_cb(uint8_t rhport, tusb_control_request_t const
 
 void handle_input_data(void) {
     uint8_t buf_in[MAX_TRANSFER_BYTES*2];
-    uint32_t count = tud_vendor_read(buf_in, sizeof(buf_in));
+    uint32_t count = tud_vendor_read((uint8_t*)buf_in, sizeof(buf_in));
     for(int i = count; i < (MAX_TRANSFER_BYTES*2); i++)
         buf_in[i] = 0;
-    // pprintf("Sending: %02x", buf[0]);
-    uint8_t total_processed = 2;
-    uint8_t buf_out[MAX_TRANSFER_BYTES*2];
-    buf_out[0] = 'A';
-    buf_out[1] = '\n';
-    echo_all(buf_out, total_processed);
+    uint32_t reported_num = buf_in[0];
+    if(count > 1) {
+        if(reported_num > (count - 1))
+            reported_num = count - 1;
+        set_data_in(buf_in + 1, reported_num);
+    }
+    uint8_t total_processed = 1;
+    uint8_t buf_out[MAX_TRANSFER_BYTES * 2];
+    for(int i = 0; i < (MAX_TRANSFER_BYTES*2); i++)
+        buf_out[i] = 0;
+    bool success;
+    for(int i = 1; i < MAX_TRANSFER_BYTES; i++) {
+        buf_out[i] = get_data_out(&success);
+        if(!success)
+            break;
+        total_processed += 1;
+        buf_out[0]++;
+    }
+    echo_all((uint8_t*)buf_out, MAX_TRANSFER_BYTES);
 }
 
 void webserial_task(void)
