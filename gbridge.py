@@ -175,6 +175,8 @@ class GBridgeSocket:
     MOBILE_MAX_CONNECTIONS = 2
     
     def read_addr(data):
+        if len(data) < 1:
+            return None
         type_conn = data[0]
         type_conn_id = None
         if(type_conn != GBridgeSocket.MOBILE_ADDRTYPE_IPV4) and (type_conn != GBridgeSocket.MOBILE_ADDRTYPE_IPV6):
@@ -188,7 +190,7 @@ class GBridgeSocket:
                 return None
             type_conn_id = socket.AF_INET6
         port = (data[1] << 8) | data[2]
-        address = socket.inet_ntop(type_conn_id, data[3:])
+        address = socket.inet_ntop(type_conn_id, bytes(data[3:]))
         if (type_conn == GBridgeSocket.MOBILE_ADDRTYPE_IPV4):
             return (address, port)
         else:
@@ -360,7 +362,6 @@ class GBridgeSocket:
             return -1
         
         conn = data[0]
-        size = (data[1] << 8) | data[2]
         
         if conn >= GBridgeSocket.MOBILE_MAX_CONNECTIONS:
             return -1
@@ -368,12 +369,12 @@ class GBridgeSocket:
         if self.socket[conn] is None:
             return -1
         
-        conn_data = GBridgeSocket.read_addr(data[3:])
+        conn_data = GBridgeSocket.read_addr(data[1:])
         if conn_data is None:
             return -1
         
         try:
-            sent = self.socket[conn].sendto(stream, 0, conn_data)
+            sent = self.socket[conn].sendto(bytes(stream), 0, conn_data)
         except Exception as e:
             if self.print_exception:
                 print(e)
