@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#define DO_SEND_DEBUG
+
 uint8_t get_data_out(bool* success);
 uint8_t get_data_out_debug(bool* success);
 uint32_t set_data_out(const uint8_t* buffer, uint32_t size, uint32_t pos);

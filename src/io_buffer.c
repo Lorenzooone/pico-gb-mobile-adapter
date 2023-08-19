@@ -1,7 +1,5 @@
 #include "io_buffer.h"
 
-#define DO_SEND_DEBUG
-
 #define OUT_BUFFER_SIZE 0x100
 #define DEBUG_OUT_BUFFER_SIZE 0x800
 #define IN_BUFFER_SIZE 0x100

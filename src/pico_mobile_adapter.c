@@ -127,10 +127,14 @@ static void mobile_validate_relay(){
 
 static void impl_debug_log(void *user, const char *line){
     (void)user;
+#ifdef DO_SEND_DEBUG
     uint8_t debug_buffer[DEBUG_MAX_SIZE];
     uint32_t printed = snprintf(debug_buffer, DEBUG_MAX_SIZE - 1, "%s\n", line);
     debug_buffer[DEBUG_MAX_SIZE - 1] = 0;
     debug_send(debug_buffer, printed + 1);
+#else
+    (void)line;
+#endif
 }
 
 static void impl_serial_disable(void *user) {
