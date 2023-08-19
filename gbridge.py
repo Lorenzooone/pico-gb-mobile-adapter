@@ -396,9 +396,9 @@ class GBridgeSocket:
         if conn_data is None:
             return -1
         
-        if(conn_data[1] == 53):
-            self.conn_data_last = conn_data
-            conn_data = ("127.0.0.1", 8921)
+        #if(conn_data[1] == 53):
+        #    self.conn_data_last = conn_data
+        #    conn_data = ("127.0.0.1", 8921)
         
         try:
             sent = self.socket[conn].sendto(bytes(stream), 0, conn_data)
