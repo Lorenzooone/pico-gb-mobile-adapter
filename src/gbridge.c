@@ -89,11 +89,21 @@ bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool expecte
     return _get_x_bytes(buffer, size, limit, read_size, wanted_cmd, size_length, run_callback);
 }
 
+static bool are_available(uint32_t size, bool is_debug) {
+    uint32_t available = 0;
+    if(!is_debug)
+        available = available_data_out();
+    else
+        available = available_data_out_debug();
+    return size <= available;
+}
+
 static bool send_section(const uint8_t* buffer, uint32_t size, uint32_t* pos, bool is_debug) {
     if(!is_debug)
         *pos = set_data_out(buffer, size, *pos);
-    else
+    else {
         *pos = set_data_out_debug(buffer, size, *pos);
+    }
     if((*pos) == size) {
         *pos = 0;
         return true;
@@ -113,6 +123,9 @@ static void _send_x_bytes(const uint8_t* buffer, uint32_t size, uint8_t cmd, uin
     bool try = true;
     while(try) {
         uint32_t pos = 0;
+        uint32_t total_length = size_length + 1 + size + 2;
+        if(is_debug && !are_available(total_length, is_debug))
+            return;
         bool completed = false;
         bool completed_cmd = false;
         bool completed_data = false;

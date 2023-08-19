@@ -26,22 +26,25 @@ class GBridgeCommand:
         self.answer = []
         self.success_checksum = True
         if(self.upper_cmd == GBridge.GBRIDGE_CMD_DATA):
-            self.command = data[0]
-            if(self.command == GBridgeCommand.GBRIDGE_PROT_MA_CMD_SEND):
-                GBridgeCommand.last_send = self
-                self.command = None
-            self.size = len(data)
-            self.data = data[1:]
             self.success_checksum = success_checksum
+            if(self.success_checksum):
+                self.command = data[0]
+                if(self.command == GBridgeCommand.GBRIDGE_PROT_MA_CMD_SEND):
+                    GBridgeCommand.last_send = self
+                    self.command = None
+                self.size = len(data)
+                self.data = data[1:]
+            
         if(self.upper_cmd == GBridge.GBRIDGE_CMD_STREAM):
-            self.command = GBridgeCommand.GBRIDGE_PROT_MA_CMD_SEND
-            self.data = data
-            self.size = len(data)
             self.success_checksum = success_checksum
+            if(self.success_checksum):
+                self.command = GBridgeCommand.GBRIDGE_PROT_MA_CMD_SEND
+                self.data = data
+                self.size = len(data)
         if(self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE):
+            self.success_checksum = success_checksum
             self.data = data
             self.size = len(data)
-            self.success_checksum = success_checksum
         if (self.response_cmd is not None) and (not self.success_checksum):
             self.response_cmd += 1
     

@@ -37,6 +37,8 @@ enum  {
 
 //#define OVERCLOCK
 
+#define DEBUG_TRANSFER_FLAG 0x80
+
 #define MAX_TRANSFER_BYTES 0x40
 
 #define URL "Mobile Adapter"
@@ -227,7 +229,6 @@ void handle_input_data(void) {
             reported_num = count - 1;
         set_data_in(buf_in + 1, reported_num);
     }
-    uint8_t total_processed = 1;
     uint8_t buf_out[MAX_TRANSFER_BYTES * 2];
     for(int i = 0; i < (MAX_TRANSFER_BYTES*2); i++)
         buf_out[i] = 0;
@@ -236,17 +237,17 @@ void handle_input_data(void) {
         buf_out[i] = get_data_out(&success);
         if(!success)
             break;
-        total_processed += 1;
         buf_out[0]++;
     }
-    if(total_processed == 1) {
+    if(!buf_out[0]) {
         for(int i = 1; i < MAX_TRANSFER_BYTES; i++) {
             buf_out[i] = get_data_out_debug(&success);
             if(!success)
                 break;
-            total_processed += 1;
             buf_out[0]++;
         }
+        if(buf_out[0])
+            buf_out[0] |= DEBUG_TRANSFER_FLAG;
     }
     echo_all((uint8_t*)buf_out, MAX_TRANSFER_BYTES);
 }

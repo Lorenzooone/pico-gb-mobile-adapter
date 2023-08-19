@@ -19,8 +19,10 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
     send_list = []
     print_data = False
     debug_print = True
+    DEBUG_TRANSFER_FLAG = 0x80
     limit = 0x40 - 1
     bridge = GBridge()
+    bridge_debug = GBridge()
     bridge_sockets = GBridgeSocket()
     while(1):
         if len(send_list) == 0:
@@ -37,8 +39,12 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
                 print(out_buf)
             list_sender(out_buf, chunk_size = len(out_buf))
             send_list = send_list[num_elems:]
+        curr_bridge = bridge
         read_data = raw_receiver(0x40)
         num_bytes = int.from_bytes(read_data[:1], byteorder='little')
+        if(num_bytes & DEBUG_TRANSFER_FLAG):
+            curr_bridge = bridge_debug
+        num_bytes &= 0x7F
         bytes = []
         if (num_bytes > 0) and (num_bytes <= (len(read_data) - 1)):
             for i in range(num_bytes):
@@ -48,7 +54,7 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
             while curr_cmd is not None:
                 if print_data:
                     print(bytes)
-                curr_cmd = bridge.init_cmd(bytes)
+                curr_cmd = curr_bridge.init_cmd(bytes)
                 if(curr_cmd is not None):
                     bytes = bytes[curr_cmd.total_len - curr_cmd.old_len:]
                     if debug_print:

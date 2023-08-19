@@ -49,15 +49,10 @@ uint8_t get_data_out_debug(bool* success) {
 #endif
 }
 
-static uint32_t _set_data_out(const uint8_t* buffer, uint32_t size, uint32_t pos, struct io_buffer* b, bool is_blocking) {
+static uint32_t _set_data_out(const uint8_t* buffer, uint32_t size, uint32_t pos, struct io_buffer* b) {
     for(uint32_t i = pos; i < size; i++) {
-        if(((b->pos_inside + 1) % b->size) == b->pos_outside) {
-            if(is_blocking)
+        if(((b->pos_inside + 1) % b->size) == b->pos_outside)
                 return i;
-            else
-                b->pos_outside++;
-                b->pos_outside %= b->size;
-        }
         b->p[b->pos_inside++] = buffer[i];
         b->pos_inside %= b->size;
     }
@@ -65,14 +60,34 @@ static uint32_t _set_data_out(const uint8_t* buffer, uint32_t size, uint32_t pos
 }
 
 uint32_t set_data_out(const uint8_t* buffer, uint32_t size, uint32_t pos) {
-    return _set_data_out(buffer, size, pos, &b_out, true);
+    return _set_data_out(buffer, size, pos, &b_out);
 }
 
 uint32_t set_data_out_debug(const uint8_t* buffer, uint32_t size, uint32_t pos) {
 #ifdef DO_SEND_DEBUG
-    return _set_data_out(buffer, size, pos, &b_debug_out, false);
+    return _set_data_out(buffer, size, pos, &b_debug_out);
 #else
     return size;
+#endif
+}
+
+static uint32_t _available_data_out(struct io_buffer* b) {
+    uint32_t result = b->pos_outside;
+    if(b->pos_outside <= b->pos_inside)
+        result += b->size;
+    result -= (b->pos_inside + 1);
+    return result;
+}
+
+uint32_t available_data_out(void) {
+    return _available_data_out(&b_out);
+}
+
+uint32_t available_data_out_debug(void) {
+#ifdef DO_SEND_DEBUG
+    return _available_data_out(&b_debug_out);
+#else
+    return 0;
 #endif
 }
 
