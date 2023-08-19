@@ -7,6 +7,7 @@
 #include "hardware/timer.h"
 #include "pico_mobile_adapter.h"
 #include "socket_impl.h"
+#include "io_buffer.h"
 #include "gbridge.h"
 #include "linkcable.h"
 
@@ -23,6 +24,11 @@ static bool impl_config_write(void *user, const void *src, const uintptr_t offse
 static void impl_time_latch(void *user, unsigned timer);
 static bool impl_time_check_ms(void *user, unsigned timer, unsigned ms);
 static void impl_update_number(void *user, enum mobile_number type, const char *number);
+
+#define DNS_DEFAULT_IP 127, 0, 0, 1
+#define DNS_DEFAULT_PORT 8921
+const char default_dns_ip[] = {DNS_DEFAULT_IP};
+const uint16_t default_dns_port = DNS_DEFAULT_PORT;
 
 //Control Flash Write
 bool haveConfigToWrite = false;
@@ -80,6 +86,12 @@ void pico_mobile_init(upkeep_callback callback) {
     mobile_def_update_number(mobile->adapter, impl_update_number);
 
     mobile_config_load(mobile->adapter);
+    struct mobile_addr default_dns;
+    default_dns._addr4.type = MOBILE_ADDRTYPE_IPV4;
+    default_dns._addr4.port = default_dns_port;
+    for(int i = 0; i < 4; i++)
+        default_dns._addr4.host[i] = default_dns_ip[i];
+    mobile_config_set_dns(mobile->adapter, &default_dns, &default_dns);
 
 #ifdef USE_FLASH
     BootMenuConfig(mobile,WiFiSSID,WiFiPASS);

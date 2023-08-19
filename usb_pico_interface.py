@@ -17,7 +17,7 @@ def kill_function():
 
 def transfer_func(sender, receiver, list_sender, raw_receiver):
     send_list = []
-    print_data = False
+    print_data = True
     debug_print = True
     DEBUG_TRANSFER_FLAG = 0x80
     limit = 0x40 - 1
@@ -42,7 +42,8 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
         curr_bridge = bridge
         read_data = raw_receiver(0x40)
         num_bytes = int.from_bytes(read_data[:1], byteorder='little')
-        if(num_bytes & DEBUG_TRANSFER_FLAG):
+        is_debug = num_bytes & DEBUG_TRANSFER_FLAG
+        if is_debug:
             curr_bridge = bridge_debug
         num_bytes &= 0x7F
         bytes = []
@@ -52,7 +53,7 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
 
             curr_cmd = True
             while curr_cmd is not None:
-                if print_data:
+                if print_data and (not is_debug):
                     print(bytes)
                 curr_cmd = curr_bridge.init_cmd(bytes)
                 if(curr_cmd is not None):
@@ -64,7 +65,7 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
                         if(curr_cmd.process(bridge_sockets)):
                             send_list += GBridge.prepare_cmd(curr_cmd.result_to_send(), False)
                             send_list += GBridge.prepare_cmd(curr_cmd.get_if_pending(), True)
-            if print_data:
+            if print_data and not is_debug:
                 print(send_list)
 
 # Code dependant on this connection method

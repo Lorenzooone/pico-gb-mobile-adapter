@@ -3,6 +3,8 @@
 
 #include <mobile.h>
 
+//#define USE_SOCKET
+
 #define EEPROM_SIZE 0x200
 
 #define OFFSET_CONFIG 0
