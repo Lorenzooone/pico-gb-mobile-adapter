@@ -21,5 +21,7 @@ void linkcable_disable(void);
 void linkcable_enable(void);
 void linkcable_reset(bool re_enable);
 void linkcable_init(irq_handler_t onReceive);
+bool get_linkcable_can_interrupt(void);
+bool disable_temporarily_if_timeout(void);
 
 #endif

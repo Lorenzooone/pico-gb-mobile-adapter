@@ -11,6 +11,7 @@ import os
 dev = None
 epIn = None
 epOut = None
+max_usb_timeout = 5
 
 def kill_function():
     os.kill(os.getpid(), signal.SIGINT)
@@ -70,7 +71,7 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
 def sendByte(byte_to_send, num_bytes):
     if(epOut is None):
         exit_no_device()
-    epOut.write(byte_to_send.to_bytes(num_bytes, byteorder='big'))
+    epOut.write(byte_to_send.to_bytes(num_bytes, byteorder='big'), timeout=max_usb_timeout * 1000)
     return
 
 # Code dependant on this connection method
@@ -79,44 +80,44 @@ def sendList(data, chunk_size=8):
         exit_no_device()
     num_iters = int(len(data)/chunk_size)
     for i in range(num_iters):
-        epOut.write(data[i*chunk_size:(i+1)*chunk_size])
+        epOut.write(data[i*chunk_size:(i+1)*chunk_size], timeout=max_usb_timeout * 1000)
     #print(num_iters*chunk_size)
     #print(len(data))
     if (num_iters*chunk_size) != len(data):
-        epOut.write(data[num_iters*chunk_size:])
+        epOut.write(data[num_iters*chunk_size:], timeout=max_usb_timeout * 1000)
         
 
 def receiveByte(num_bytes):
     if(epIn is None):
         exit_no_device()
-    recv = int.from_bytes(epIn.read(num_bytes), byteorder='big')
+    recv = int.from_bytes(epIn.read(num_bytes, timeout=max_usb_timeout * 1000), byteorder='big')
     return recv
 
 def receiveByte_raw(num_bytes):
     if(epIn is None):
         exit_no_device()
-    return epIn.read(num_bytes)
+    return epIn.read(num_bytes, timeout=max_usb_timeout * 1000)
 
 # Code dependant on this connection method
 def sendByte_win(byte_to_send, num_bytes):
-    p.write(byte_to_send.to_bytes(num_bytes, byteorder='big'))
+    p.write(byte_to_send.to_bytes(num_bytes, byteorder='big'), timeout=max_usb_timeout)
 
 # Code dependant on this connection method
 def sendList_win(data, chunk_size=8):
     num_iters = int(len(data)/chunk_size)
     for i in range(num_iters):
-        p.write(bytes(data[i*chunk_size:(i+1)*chunk_size]))
+        p.write(bytes(data[i*chunk_size:(i+1)*chunk_size]), timeout=max_usb_timeout)
     #print(num_iters*chunk_size)
     #print(len(data))
     if (num_iters*chunk_size) != len(data):
-        p.write(bytes(data[num_iters*chunk_size:]))
+        p.write(bytes(data[num_iters*chunk_size:]), timeout=max_usb_timeout)
 
 def receiveByte_win(num_bytes):
-    recv = int.from_bytes(p.read(size=num_bytes), byteorder='big')
+    recv = int.from_bytes(p.read(size=num_bytes, timeout=max_usb_timeout), byteorder='big')
     return recv
 
 def receiveByte_raw_win(num_bytes):
-    return p.read(size=num_bytes)
+    return p.read(size=num_bytes, timeout=max_usb_timeout)
 
 # Things for the USB connection part
 def exit_gracefully():

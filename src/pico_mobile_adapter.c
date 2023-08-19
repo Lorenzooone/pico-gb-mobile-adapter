@@ -10,13 +10,14 @@
 #include "io_buffer.h"
 #include "gbridge.h"
 #include "linkcable.h"
+#include "flash_eeprom.h"
 
-//#define USE_FLASH
+#define USE_FLASH
 #define DEBUG_MAX_SIZE 0x200
 #define IDLE_COMMAND 0xD2
+//#define SET_DEFAULT_DNS
 
 static void mobile_validate_relay(void);
-static void impl_debug_log(void *user, const char *line);
 static void impl_serial_disable(void *user);
 static void impl_serial_enable(void *user, bool mode_32bit);
 static bool impl_config_read(void *user, void *dest, const uintptr_t offset, const size_t size);
@@ -26,13 +27,12 @@ static bool impl_time_check_ms(void *user, unsigned timer, unsigned ms);
 static void impl_update_number(void *user, enum mobile_number type, const char *number);
 
 #define DNS_DEFAULT_IP 127, 0, 0, 1
-#define DNS_DEFAULT_PORT 8921
+#define DNS_DEFAULT_PORT 53
 const char default_dns_ip[] = {DNS_DEFAULT_IP};
 const uint16_t default_dns_port = DNS_DEFAULT_PORT;
 
 //Control Flash Write
 bool haveConfigToWrite = false;
-bool startWriteConfig = false;
 uint8_t currentTicks = 0;
 
 bool isLinkCable32 = false;
@@ -64,7 +64,7 @@ void pico_mobile_init(upkeep_callback callback) {
 
     memset(mobile->config_eeprom,0x00,sizeof(mobile->config_eeprom));
 #ifdef USE_FLASH
-    ReadFlashConfig(mobile->config_eeprom, WiFiSSID, WiFiPASS);
+    ReadFlashConfig(mobile->config_eeprom, EEPROM_SIZE);
 #endif
 
     // Initialize mobile library
@@ -86,15 +86,14 @@ void pico_mobile_init(upkeep_callback callback) {
     mobile_def_update_number(mobile->adapter, impl_update_number);
 
     mobile_config_load(mobile->adapter);
+    
+#ifdef SET_DEFAULT_DNS
     struct mobile_addr default_dns;
     default_dns._addr4.type = MOBILE_ADDRTYPE_IPV4;
     default_dns._addr4.port = default_dns_port;
     for(int i = 0; i < 4; i++)
         default_dns._addr4.host[i] = default_dns_ip[i];
     mobile_config_set_dns(mobile->adapter, &default_dns, &default_dns);
-
-#ifdef USE_FLASH
-    BootMenuConfig(mobile,WiFiSSID,WiFiPASS);
 #endif
 
     mobile->action = MOBILE_ACTION_NONE;
@@ -115,18 +114,13 @@ void pico_mobile_loop(void) {
 #ifdef USE_FLASH
     // Check if there is any new config to write on Flash
     if(haveConfigToWrite){
-        bool checkSockStatus = false;
-        for (int i = 0; i < MOBILE_MAX_CONNECTIONS; i++){
-            if(mobile->socket[i].tcp_pcb || mobile->socket[i].udp_pcb){
-                checkSockStatus = true;
-                break;
-            } 
-        }
-        if(!checkSockStatus && startWriteConfig){
-            SaveFlashConfig(mobile->config_eeprom);
+        bool disabled_for_this = disable_temporarily_if_timeout();
+        if(!get_linkcable_can_interrupt()) {
+            SaveFlashConfig(mobile->config_eeprom, EEPROM_SIZE);
             haveConfigToWrite = false;
-            startWriteConfig = false;
             currentTicks = 0;
+            if(disabled_for_this)
+                linkcable_enable();
         }
     }
 #endif
@@ -137,7 +131,7 @@ static void mobile_validate_relay(){
     mobile_config_get_relay(mobile->adapter, &relay);
 }
 
-static void impl_debug_log(void *user, const char *line){
+void impl_debug_log(void *user, const char *line){
     (void)user;
 #ifdef DO_SEND_DEBUG
     uint8_t debug_buffer[DEBUG_MAX_SIZE];
@@ -151,16 +145,6 @@ static void impl_debug_log(void *user, const char *line){
 
 static void impl_serial_disable(void *user) {
     struct mobile_user *mobile = (struct mobile_user *)user;
-
-#ifdef USE_FLASH
-    if(haveConfigToWrite && !startWriteConfig){
-        if(currentTicks >= TICKSWAIT){
-            startWriteConfig = true;
-        }else{
-            currentTicks++;
-        }
-    }
-#endif
     linkcable_disable(); 
 }
 
@@ -175,7 +159,7 @@ static void impl_serial_enable(void *user, bool mode_32bit) {
 static bool impl_config_read(void *user, void *dest, const uintptr_t offset, const size_t size) {
     struct mobile_user *mobile = (struct mobile_user *)user;
     for(int i = 0; i < size; i++){
-        ((char *)dest)[i] = (char)mobile->config_eeprom[OFFSET_MAGB + offset + i];
+        ((char *)dest)[i] = (char)mobile->config_eeprom[offset + i];
     }
     return true;
 }
@@ -183,7 +167,7 @@ static bool impl_config_read(void *user, void *dest, const uintptr_t offset, con
 static bool impl_config_write(void *user, const void *src, const uintptr_t offset, const size_t size) {
     struct mobile_user *mobile = (struct mobile_user *)user;
     for(int i = 0; i < size; i++){
-        mobile->config_eeprom[OFFSET_MAGB + offset + i] = ((uint8_t *)src)[i];
+        mobile->config_eeprom[offset + i] = ((uint8_t *)src)[i];
     }
 #ifdef USE_FLASH
     haveConfigToWrite = true;

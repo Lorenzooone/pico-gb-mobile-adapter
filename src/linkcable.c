@@ -6,6 +6,10 @@
 
 #include "linkcable.h"
 
+#define MUSEC(x) (x)
+#define MSEC(x) (MUSEC(x) * 1000)
+#define SEC(x) (MSEC(x) * 1000)
+
 #ifdef STACKSMASHING
     #include "linkcable_sm.pio.h"
 #else
@@ -17,7 +21,8 @@
 static irq_handler_t linkcable_irq_handler = NULL;
 static uint32_t linkcable_pio_initial_pc = 0;
 static uint saved_bits = DEFAULT_SAVED_BITS;
-static uint64_t saved_time;
+static uint64_t saved_time = 0;
+bool is_enabled = false;
 
 static void linkcable_isr(void) {
     uint64_t curr_time = time_us_64();
@@ -26,12 +31,28 @@ static void linkcable_isr(void) {
     if (pio_interrupt_get(LINKCABLE_PIO, 0)) pio_interrupt_clear(LINKCABLE_PIO, 0);
     curr_time = time_us_64();
     if(dest_time > curr_time) {
-        if((dest_time - curr_time) < (100*1000))
+        if((dest_time - curr_time) < MSEC(100))
             busy_wait_us(dest_time - curr_time);
     }
 #ifdef STACKSMASHING
     linkcable_activate(LINKCABLE_PIO, LINKCABLE_SM);
 #endif
+}
+
+bool disable_temporarily_if_timeout(void) {
+    if(!is_enabled)
+        return false;
+    uint64_t old_time = saved_time;
+    uint64_t curr_time = time_us_64();
+    if((curr_time - old_time) >= SEC(10)) {
+        linkcable_disable();
+        return true;
+    }
+    return false;
+}
+
+bool get_linkcable_can_interrupt(void) {
+    return is_enabled;
 }
 
 static void linkcable_time_isr(void) {
@@ -54,6 +75,7 @@ void clean_linkcable_fifos(void) {
 }
 
 void linkcable_enable(void) {
+    is_enabled = true;
     pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, true);
 }
 
@@ -63,12 +85,13 @@ void linkcable_disable(void) {
 
 void linkcable_reset(bool re_enable) {
     pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, false);
+    is_enabled = false;
     pio_sm_clear_fifos(LINKCABLE_PIO, LINKCABLE_SM);
     pio_sm_restart(LINKCABLE_PIO, LINKCABLE_SM);
     pio_sm_clkdiv_restart(LINKCABLE_PIO, LINKCABLE_SM);
     pio_sm_exec(LINKCABLE_PIO, LINKCABLE_SM, pio_encode_jmp(linkcable_pio_initial_pc));
     if(re_enable)
-        pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, true);
+        linkcable_enable();
 }
 
 void linkcable_set_is_32(uint32_t is_32) {
