@@ -3,8 +3,6 @@
 
 #include <mobile.h>
 
-//#define USE_SOCKET
-
 #define EEPROM_SIZE 0x200
 
 #define OFFSET_CONFIG 0
@@ -30,10 +28,6 @@ struct mobile_user {
     char number_peer[MOBILE_MAX_NUMBER_SIZE + 1];
 };
 
-uint8_t get_data_out(bool* success);
-uint32_t set_data_out(const uint8_t* buffer, uint32_t size, uint32_t pos);
-uint32_t get_data_in(void);
-void set_data_in(uint8_t* buffer, uint32_t size);
 void call_upkeep_callback(void);
 void link_cable_ISR(void);
 void pico_mobile_init(upkeep_callback callback);

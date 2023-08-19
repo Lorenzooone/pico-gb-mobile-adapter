@@ -20,7 +20,7 @@ class GBridgeCommand:
         self.old_len = old_len
         self.is_split = False
         self.response_cmd = None
-        if not (self.upper_cmd & GBridge.GBRIDGE_CMD_REPLY_F):
+        if (not (self.upper_cmd & GBridge.GBRIDGE_CMD_REPLY_F)) and (not (self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE)):
             self.response_cmd = self.upper_cmd | GBridge.GBRIDGE_CMD_REPLY_F
         self.command = None
         self.answer = []
@@ -38,7 +38,11 @@ class GBridgeCommand:
             self.data = data
             self.size = len(data)
             self.success_checksum = success_checksum
-        if not self.success_checksum:
+        if(self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE):
+            self.data = data
+            self.size = len(data)
+            self.success_checksum = success_checksum
+        if (self.response_cmd is not None) and (not self.success_checksum):
             self.response_cmd += 1
     
     def process(self, sockets):
@@ -76,11 +80,9 @@ class GBridgeCommand:
         if self.command == GBridgeCommand.GBRIDGE_PROT_MA_CMD_RECV:
             self.pending = None
             result = sockets.recv(self.data)
-            try:
+            if len(result[0]) > 0:
                 self.pending = result[0]
-                self.answer = result[1]
-            except TypeError:
-                self.answer = [0, 0]
+            self.answer = result[1]
             return True
         return False
 
@@ -95,8 +97,13 @@ class GBridgeCommand:
             self.pending = None
             return answer
         return []
+    
+    def do_print(self):
+        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE:
+            print(bytes(self.data).decode('utf-8'), end='')
 
 class GBridge:
+    GBRIDGE_CMD_DEBUG_LINE = 0x02
     GBRIDGE_CMD_DATA = 0x0A
     GBRIDGE_CMD_STREAM = 0x0C
     GBRIDGE_CMD_DATA_PC = 0x4A
@@ -118,11 +125,16 @@ class GBridge:
     def prepare_cmd(data, is_stream):
         if len(data) == 0:
             return []
-        start = [GBridge.GBRIDGE_CMD_DATA_PC, len(data) & 0xFF]
+
+        cmd = GBridge.GBRIDGE_CMD_DATA_PC
+        size_length = 1
         if is_stream:
-            start = [GBridge.GBRIDGE_CMD_STREAM_PC, (len(data) >> 8) & 0xFF, len(data) & 0xFF]
+            cmd = GBridge.GBRIDGE_CMD_STREAM_PC
+            size_length = 2
+
+        start = [cmd] + list(len(data).to_bytes(size_length, byteorder='big'))
         checksum = GBridge.calc_checksum(data)
-        return start + data + [checksum >> 8, checksum & 0xFF]
+        return start + data + list(checksum.to_bytes(2, byteorder='big'))
            
     def consume_cmd(self):
         self.total_len = 0
@@ -133,11 +145,13 @@ class GBridge:
         self.total_len += 1
         len_length = 0
         if(self.curr_cmd == GBridge.GBRIDGE_CMD_DATA) and (len(self.curr_data) > 1):
-            self.curr_len = self.curr_data[1] & 0xFF
             len_length = 1
         if(self.curr_cmd == GBridge.GBRIDGE_CMD_STREAM) and (len(self.curr_data) > 2):
-            self.curr_len = ((self.curr_data[1] & 0xFF) << 8) | (self.curr_data[2] & 0xFF)
             len_length = 2
+        if(self.curr_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE):
+            len_length = 2
+        if(len_length > 0) and (len(self.curr_data) > len_length):
+            self.curr_len = int.from_bytes(self.curr_data[1 : 1 + len_length], byteorder='big')
         self.total_len += len_length + self.curr_len
         if(len(self.curr_data) > self.curr_len + len_length):
             self.final_data = self.curr_data[len_length + 1: self.curr_len + len_length + 1]
@@ -145,7 +159,7 @@ class GBridge:
                 return True
         self.total_len += 2
         if(len(self.curr_data) > self.curr_len + len_length + 2):
-            self.checksum = ((self.curr_data[self.curr_len + len_length + 1] & 0xFF) << 8) | (self.curr_data[self.curr_len + len_length + 1 + 1] & 0xFF)
+            self.checksum = int.from_bytes(self.curr_data[self.curr_len + len_length + 1 : self.curr_len + len_length + 1 + 2], byteorder='big')
             self.checksum_okay = GBridge.calc_checksum(self.final_data) == self.checksum
             return True
         return None
@@ -154,7 +168,8 @@ class GBridge:
         checksum = 0
         for i in range(len(data)):
             checksum += data[i]
-        return (checksum & 0xFFFF)
+            checksum &= 0xFFFF
+        return checksum
     
     def reset_cmd(self):
         self.total_len = 0
@@ -207,19 +222,22 @@ class GBridgeSocket:
             type_conn_id = socket.AF_INET6
 
         if type_conn == GBridgeSocket.MOBILE_ADDRTYPE_NONE:
-            return []
+            return [type_conn]
         
-        out_bytes = [(data[1] >> 8) & 0xFF, data[1] & 0xFF]
+        out_bytes = [type_conn, (data[1] >> 8) & 0xFF, data[1] & 0xFF]
         out_bytes += socket.inet_pton(type_conn_id, data[0])
         return out_bytes
 
     def __init__(self):
+        self.conn_data_last = None
         self.print_exception = True
         self.socket = []
         self.socket_type = []
+        self.socket_addrtype = []
         for i in range(GBridgeSocket.MOBILE_MAX_CONNECTIONS):
             self.socket += [None]
             self.socket_type += [None]
+            self.socket_addrtype += [None]
     
     def open(self, data):
         if(len(data) < 5):
@@ -268,6 +286,7 @@ class GBridgeSocket:
 
         self.socket[conn] = sock;
         self.socket_type[conn] = sock_type
+        self.socket_addrtype[conn] = sock_addrtype
         return True;
     
     def close(self, data):
@@ -282,11 +301,12 @@ class GBridgeSocket:
         if self.socket[conn] is None:
             return False
 
-        self.socket[conn].shutdown()
+        #self.socket[conn].shutdown(socket.SHUT_RDWR)
         self.socket[conn].close()
 
         self.socket[conn] = None;
         self.socket_type[conn] = None
+        self.socket_addrtype[conn] = None
         return True;
     
     def connect(self, data):
@@ -348,7 +368,7 @@ class GBridgeSocket:
         try:
             new_sock = self.socket[conn].accept()
             new_sock.setblocking(False)
-            self.socket[conn].shutdown()
+            #self.socket[conn].shutdown(socket.SHUT_RDWR)
             self.socket[conn].close()
             self.socket[conn] = new_sock
         except Exception as e:
@@ -373,6 +393,10 @@ class GBridgeSocket:
         if conn_data is None:
             return -1
         
+        if(conn_data[1] == 53):
+            self.conn_data_last = conn_data
+            conn_data = ("127.0.0.1", 8921)
+        
         try:
             sent = self.socket[conn].sendto(bytes(stream), 0, conn_data)
         except Exception as e:
@@ -381,7 +405,7 @@ class GBridgeSocket:
             return -1
         return int(sent)
     
-    def recv(self, data):
+    def run_recv(self, data):
         if(len(data) < 3):
             return 0
 
@@ -397,13 +421,14 @@ class GBridgeSocket:
 
         try:
             result = self.socket[conn].recv(1, socket.MSG_PEEK)
-            print(result)
             if(len(result) <= 0):
                 return 0
             result = self.socket[conn].recvfrom(size)
-            print(result)
-            data_recv = result[0]
+            data_recv = list(result[0])
             source_recv = result[1]
+            if self.conn_data_last is not None:
+                source_recv = self.conn_data_last
+                self.conn_data_last = None
             # Make sure at least one byte is in the buffer
             if(len(data_recv) == 0):
                 if self.socket_type[conn] == socket.SOCK_STREAM:
@@ -413,5 +438,15 @@ class GBridgeSocket:
                 print(e)
             return -1
 
-        return [data_recv, [(len(data_recv) >> 8) & 0xFF, data_recv & 0xFF] + GBridgeSocket.write_addr(source_recv)]
+        return [data_recv, [(len(data_recv) >> 8) & 0xFF, len(data_recv) & 0xFF] + GBridgeSocket.write_addr(source_recv)]
+    
+    def recv(self, data):
+        result = self.run_recv(data)
+        try:
+            data = result[0]
+            rest = result[1]
+        except TypeError:
+            data = []
+            rest = [(result >> 8) & 0xFF, result & 0xFF] + GBridgeSocket.write_addr([])
+        return [data, rest]
 

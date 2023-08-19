@@ -17,7 +17,8 @@ def kill_function():
 
 def transfer_func(sender, receiver, list_sender, raw_receiver):
     send_list = []
-    print_data = True
+    print_data = False
+    debug_print = True
     limit = 0x40 - 1
     bridge = GBridge()
     bridge_sockets = GBridgeSocket()
@@ -50,6 +51,8 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
                 curr_cmd = bridge.init_cmd(bytes)
                 if(curr_cmd is not None):
                     bytes = bytes[curr_cmd.total_len - curr_cmd.old_len:]
+                    if debug_print:
+                        curr_cmd.do_print()
                     if(curr_cmd.response_cmd is not None):
                         send_list += [curr_cmd.response_cmd]
                         if(curr_cmd.process(bridge_sockets)):

@@ -48,4 +48,8 @@ enum gbma_prot_cmd {
     GBRIDGE_PROT_MA_CMD_RECV
 };
 
+bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool expected_data, uint32_t limit, uint32_t* read_size);
+void send_x_bytes(const uint8_t* buffer, uint32_t size, bool run_callback, bool send_checksum, bool is_data);
+void debug_send(uint8_t* buffer, uint32_t size);
+
 #endif /* _GBRIDGE_H_ */

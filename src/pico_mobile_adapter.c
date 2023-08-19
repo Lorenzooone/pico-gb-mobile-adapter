@@ -7,11 +7,11 @@
 #include "hardware/timer.h"
 #include "pico_mobile_adapter.h"
 #include "socket_impl.h"
+#include "gbridge.h"
 #include "linkcable.h"
 
 //#define USE_FLASH
-#define OUT_BUFFER_SIZE 0x100
-#define IN_BUFFER_SIZE 0x100
+#define DEBUG_MAX_SIZE 0x200
 #define IDLE_COMMAND 0xD2
 
 static void mobile_validate_relay(void);
@@ -33,58 +33,11 @@ bool isLinkCable32 = false;
 bool link_cable_data_received = false;
 
 struct mobile_user *mobile;
-upkeep_callback saved_callback;
-
-uint8_t buffer_out[OUT_BUFFER_SIZE];
-uint8_t buffer_in[IN_BUFFER_SIZE];
-
-uint32_t buffer_pos_out_inside;
-uint32_t buffer_pos_out_outside;
-
-uint32_t buffer_pos_in_inside;
-uint32_t buffer_pos_in_outside;
-
-uint8_t get_data_out(bool* success) {
-    *success = 0;
-    uint32_t data = 0;
-    if(buffer_pos_out_inside != buffer_pos_out_outside) {
-        data = buffer_out[buffer_pos_out_outside++];
-        buffer_pos_out_outside %= OUT_BUFFER_SIZE;
-        *success = 1;
-    }
-    return data;
-}
-
-uint32_t set_data_out(const uint8_t* buffer, uint32_t size, uint32_t pos) {
-    for(uint32_t i = pos; i < size; i++) {
-        if(((buffer_pos_out_inside + 1) % OUT_BUFFER_SIZE) == buffer_pos_out_outside)
-            return i;
-        buffer_out[buffer_pos_out_inside++] = buffer[i];
-        buffer_pos_out_inside %= OUT_BUFFER_SIZE;
-    }
-    return size;
-}
-
-uint32_t get_data_in(void) {
-    uint32_t data;
-    if(buffer_pos_in_inside == buffer_pos_in_outside)
-        data = -1;
-    else {
-        data = buffer_in[buffer_pos_in_inside];
-        buffer_pos_in_inside = (buffer_pos_in_inside + 1) % IN_BUFFER_SIZE;
-    }
-    return data;
-}
-
-void set_data_in(uint8_t* buffer, uint32_t size) {
-    for(int i = 0; i < size; i++) {
-        buffer_in[buffer_pos_in_outside++] = buffer[i];
-        buffer_pos_in_outside %= IN_BUFFER_SIZE;
-    }
-}
+upkeep_callback saved_callback = NULL;
 
 void call_upkeep_callback(void) {
-    saved_callback();
+    if(saved_callback)
+        saved_callback();
 }
 
 void link_cable_ISR(void) {
@@ -174,7 +127,10 @@ static void mobile_validate_relay(){
 
 static void impl_debug_log(void *user, const char *line){
     (void)user;
-    fprintf(stderr, "%s\n", line);
+    uint8_t debug_buffer[DEBUG_MAX_SIZE];
+    uint32_t printed = snprintf(debug_buffer, DEBUG_MAX_SIZE - 1, "%s\n", line);
+    debug_buffer[DEBUG_MAX_SIZE - 1] = 0;
+    debug_send(debug_buffer, printed + 1);
 }
 
 static void impl_serial_disable(void *user) {
