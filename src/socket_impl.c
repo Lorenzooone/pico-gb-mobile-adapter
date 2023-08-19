@@ -130,7 +130,7 @@ int impl_sock_connect(void* user, unsigned conn, const struct mobile_addr *addr)
     if (buffer[0] != cmd)
         return -1;
 
-    return (char)buffer[1];
+    return (int8_t)buffer[1];
 }
 
 bool impl_sock_listen(void* user, unsigned conn)
@@ -199,7 +199,7 @@ int impl_sock_send(void* user, unsigned conn, const void *data, const unsigned s
     if (buffer[0] != cmd)
         return -1;
 
-    return (buffer[1] << 8) | (buffer[2]);
+    return (int16_t)((buffer[1] << 8) | (buffer[2]));
 }
 
 int impl_sock_recv(void* user, unsigned conn, void *data, unsigned size, struct mobile_addr *addr)
@@ -234,7 +234,7 @@ int impl_sock_recv(void* user, unsigned conn, void *data, unsigned size, struct 
 
     size = sent_size;
 
-    if(!get_x_bytes(buffer, size, true, false, size, &result_size))
+    if(!get_x_bytes(data, size, true, false, size, &result_size))
         return -1;
 
     return sent_size;

@@ -39,6 +39,8 @@ static bool get_section(uint8_t* buffer, uint32_t size, bool run_callback, bool 
 
 static bool _get_x_bytes(uint8_t* buffer, uint32_t size, uint32_t limit, uint32_t* read_size, uint8_t wanted_cmd, uint8_t size_length, bool run_callback) {
     *read_size = 0;
+    if(!buffer)
+        return true;
     uint8_t cmd_data[5];
     uint8_t checksum_data[2];
     if(size_length > 4)

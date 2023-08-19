@@ -217,12 +217,13 @@ class GBridgeSocket:
     def write_addr(data):
         type_conn = GBridgeSocket.MOBILE_ADDRTYPE_NONE
         type_conn_id = None
-        if(len(data) == 2):
-            type_conn = GBridgeSocket.MOBILE_ADDRTYPE_IPV4
-            type_conn_id = socket.AF_INET
-        if(len(data) == 4):
-            type_conn = GBridgeSocket.MOBILE_ADDRTYPE_IPV6
-            type_conn_id = socket.AF_INET6
+        if data is not None:
+            if(len(data) == 2):
+                type_conn = GBridgeSocket.MOBILE_ADDRTYPE_IPV4
+                type_conn_id = socket.AF_INET
+            if(len(data) == 4):
+                type_conn = GBridgeSocket.MOBILE_ADDRTYPE_IPV6
+                type_conn_id = socket.AF_INET6
 
         if type_conn == GBridgeSocket.MOBILE_ADDRTYPE_NONE:
             return [type_conn]
@@ -232,6 +233,7 @@ class GBridgeSocket:
         return out_bytes
 
     def __init__(self):
+        self.debug_prints = True
         self.conn_data_last = None
         self.print_exception = True
         self.socket = []
@@ -243,6 +245,8 @@ class GBridgeSocket:
             self.socket_addrtype += [None]
     
     def open(self, data):
+        if self.debug_prints:
+            print("OPEN")
         if(len(data) < 5):
             return False
 
@@ -276,7 +280,7 @@ class GBridgeSocket:
                 return False
 
             sock = socket.socket(sock_addrtype, sock_type)
-            sock.setblocking(False)
+            #sock.setblocking(False)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             if(conn_type == GBridgeSocket.MOBILE_SOCKTYPE_TCP):
                 sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -293,6 +297,8 @@ class GBridgeSocket:
         return True;
     
     def close(self, data):
+        if self.debug_prints:
+            print("CLOSE")
         if(len(data) < 1):
             return False
 
@@ -313,6 +319,8 @@ class GBridgeSocket:
         return True;
     
     def connect(self, data):
+        if self.debug_prints:
+            print("CONNECT")
         if(len(data) < 2):
             return -1
 
@@ -334,9 +342,11 @@ class GBridgeSocket:
             if self.print_exception:
                 print(e)
             return -1
-        return 0
+        return 1
     
     def listen(self, data):
+        if self.debug_prints:
+            print("LISTEN")
         if(len(data) < 1):
             return False
 
@@ -357,6 +367,8 @@ class GBridgeSocket:
         return True
     
     def accept(self, data):
+        if self.debug_prints:
+            print("ACCEPT")
         if(len(data) < 1):
             return False
 
@@ -370,7 +382,7 @@ class GBridgeSocket:
         
         try:
             new_sock = self.socket[conn].accept()
-            new_sock.setblocking(False)
+            #new_sock.setblocking(False)
             #self.socket[conn].shutdown(socket.SHUT_RDWR)
             self.socket[conn].close()
             self.socket[conn] = new_sock
@@ -381,6 +393,8 @@ class GBridgeSocket:
         return True
     
     def send(self, data, stream):
+        if self.debug_prints:
+            print("SEND")
         if(len(data) < 3):
             return -1
         
@@ -444,6 +458,8 @@ class GBridgeSocket:
         return [data_recv, [(len(data_recv) >> 8) & 0xFF, len(data_recv) & 0xFF] + GBridgeSocket.write_addr(source_recv)]
     
     def recv(self, data):
+        if self.debug_prints:
+            print("RECV")
         result = self.run_recv(data)
         try:
             data = result[0]
