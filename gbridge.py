@@ -352,6 +352,9 @@ class GBridgeSocket:
                     if e.errno == errno.EINPROGRESS:
                         sleep(0.05)
                         processed = True
+                    if e.errno == errno.EALREADY:
+                        sleep(0.05)
+                        processed = True
                 if not processed:
                     if self.print_exception:
                         print(e)
