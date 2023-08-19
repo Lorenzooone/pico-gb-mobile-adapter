@@ -212,8 +212,11 @@ int impl_sock_recv(void* user, unsigned conn, void *data, unsigned size, struct 
     buffer[1] = conn;
     buffer[2] = size >> 8;
     buffer[3] = size & 0xFF;
-    
-    send_x_bytes(buffer, 4, true, true, true);
+    buffer[4] = 1;
+    if(!data)
+        buffer[4] = 0;
+
+    send_x_bytes(buffer, 5, true, true, true);
 
     if(!get_x_bytes(buffer, 3, true, true, BUF_SIZE, &result_size))
         return -1;

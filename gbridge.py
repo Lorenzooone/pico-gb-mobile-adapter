@@ -1,4 +1,6 @@
+from time import sleep
 import socket
+import errno
 
 class GBridgeCommand:
     GBRIDGE_PROT_MA_CMD_OPEN = 0
@@ -236,11 +238,13 @@ class GBridgeSocket:
         self.debug_prints = True
         self.conn_data_last = None
         self.print_exception = True
+        self.connect_socket = []
         self.socket = []
         self.socket_type = []
         self.socket_addrtype = []
         for i in range(GBridgeSocket.MOBILE_MAX_CONNECTIONS):
             self.socket += [None]
+            self.connect_socket += [None]
             self.socket_type += [None]
             self.socket_addrtype += [None]
     
@@ -280,7 +284,7 @@ class GBridgeSocket:
                 return False
 
             sock = socket.socket(sock_addrtype, sock_type)
-            #sock.setblocking(False)
+            sock.setblocking(False)
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             if(conn_type == GBridgeSocket.MOBILE_SOCKTYPE_TCP):
                 sock.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
@@ -336,12 +340,22 @@ class GBridgeSocket:
         if conn_data is None:
             return -1
         
-        try:
-            self.socket[conn].connect(conn_data)
-        except Exception as e:
-            if self.print_exception:
-                print(e)
-            return -1
+        done = False
+        while not done:
+            try:
+                self.socket[conn].connect(conn_data)
+                self.connect_socket[conn] = conn_data
+                done = True
+            except Exception as e:
+                processed = False
+                if isinstance(e, socket.error):
+                    if e.errno == errno.EINPROGRESS:
+                        sleep(0.05)
+                        processed = True
+                if not processed:
+                    if self.print_exception:
+                        print(e)
+                    return -1
         return 1
     
     def listen(self, data):
@@ -382,7 +396,7 @@ class GBridgeSocket:
         
         try:
             new_sock = self.socket[conn].accept()
-            #new_sock.setblocking(False)
+            new_sock.setblocking(False)
             #self.socket[conn].shutdown(socket.SHUT_RDWR)
             self.socket[conn].close()
             self.socket[conn] = new_sock
@@ -395,7 +409,7 @@ class GBridgeSocket:
     def send(self, data, stream):
         if self.debug_prints:
             print("SEND")
-        if(len(data) < 3):
+        if(len(data) < 2):
             return -1
         
         conn = data[0]
@@ -407,15 +421,14 @@ class GBridgeSocket:
             return -1
         
         conn_data = GBridgeSocket.read_addr(data[1:])
-        if conn_data is None:
-            return -1
-        
-        #if(conn_data[1] == 53):
-        #    self.conn_data_last = conn_data
-        #    conn_data = ("127.0.0.1", 8921)
+        #if conn_data is None:
+        #    conn_data = self.connect_socket[conn]
         
         try:
-            sent = self.socket[conn].sendto(bytes(stream), 0, conn_data)
+            if conn_data is None:
+                sent = self.socket[conn].send(bytes(stream), 0)
+            else:
+                sent = self.socket[conn].sendto(bytes(stream), 0, conn_data)
         except Exception as e:
             if self.print_exception:
                 print(e)
@@ -423,12 +436,14 @@ class GBridgeSocket:
         return int(sent)
     
     def run_recv(self, data):
-        if(len(data) < 3):
+        if(len(data) < 4):
             return 0
 
         size = (data[1] << 8) | data[2]
         
         conn = data[0]
+        
+        is_valid = data[3] == 1
         
         if conn >= GBridgeSocket.MOBILE_MAX_CONNECTIONS:
             return 0
@@ -437,23 +452,23 @@ class GBridgeSocket:
             return 0
 
         try:
-            result = self.socket[conn].recv(1, socket.MSG_PEEK)
-            if(len(result) <= 0):
-                return 0
             result = self.socket[conn].recvfrom(size)
             data_recv = list(result[0])
             source_recv = result[1]
-            if self.conn_data_last is not None:
-                source_recv = self.conn_data_last
-                self.conn_data_last = None
             # Make sure at least one byte is in the buffer
             if(len(data_recv) == 0):
                 if self.socket_type[conn] == socket.SOCK_STREAM:
                     return -2
         except Exception as e:
-            if self.print_exception:
-                print(e)
-            return -1
+            processed = False
+            if isinstance(e, socket.error):
+                if e.errno == errno.EWOULDBLOCK:
+                    return 0
+                    processed = True
+            if not processed:
+                if self.print_exception:
+                    print(e)
+                return -1
 
         return [data_recv, [(len(data_recv) >> 8) & 0xFF, len(data_recv) & 0xFF] + GBridgeSocket.write_addr(source_recv)]
     
