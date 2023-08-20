@@ -107,6 +107,14 @@ void pico_mobile_init(upkeep_callback callback) {
     mobile_validate_relay();
 }
 
+void irqs_disable(void) {
+    linkcable_disable();
+}
+
+void irqs_enable(void) {
+    linkcable_enable();
+}
+
 void pico_mobile_loop(void) {
     // Mobile Adapter Main Loop
     mobile_loop(mobile->adapter);
@@ -114,13 +122,11 @@ void pico_mobile_loop(void) {
 #ifdef USE_FLASH
     // Check if there is any new config to write on Flash
     if(haveConfigToWrite){
-        bool disabled_for_this = disable_temporarily_if_timeout();
-        if(!get_linkcable_can_interrupt()) {
+        bool can_disable_irqs = can_disable_linkcable_irq();
+        if((!get_linkcable_can_interrupt()) || can_disable_irqs) {
             SaveFlashConfig(mobile->config_eeprom, EEPROM_SIZE);
             haveConfigToWrite = false;
             currentTicks = 0;
-            if(disabled_for_this)
-                linkcable_enable();
         }
     }
 #endif

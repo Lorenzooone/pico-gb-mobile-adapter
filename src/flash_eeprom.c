@@ -5,6 +5,7 @@
 #include <string.h>
 
 #include <mobile.h>
+#include "hardware/sync.h"
 #include "pico_mobile_adapter.h"
 
 #include "pico/time.h"
@@ -54,9 +55,9 @@ void *memmem(const void *l, size_t l_len, const void *s, size_t s_len){
 //512 bytes for the Mobile Adapter GB + Adapter Configs + 16 for "CONFIG", and the rest 
 void FormatFlashConfig(){
     DEBUG_PRINT_FUNCTION("Erasing target region... ");
-    busy_wait_ms(1*1000);
+    uint32_t irqs = save_and_disable_interrupts();
     flash_range_erase(FLASH_TARGET_OFFSET, FLASH_DATA_SIZE);
-    busy_wait_ms(1*1000);
+    restore_interrupts(irqs);
     DEBUG_PRINT_FUNCTION("Done.\n");
 }
 
@@ -90,8 +91,8 @@ void SaveFlashConfig(uint8_t * buff, uint32_t size) {
     uint8_t tmp_buff[FLASH_DATA_SIZE];
     sprintf(tmp_buff,"%s",KEY_CONFIG);
     memcpy(tmp_buff+OFFSET_MAGB,buff,size);
-    busy_wait_ms(1*1000);
+    uint32_t irqs = save_and_disable_interrupts();
     flash_range_program(FLASH_TARGET_OFFSET, tmp_buff, FLASH_DATA_SIZE);
-    busy_wait_ms(1*1000);
+    restore_interrupts(irqs);
     DEBUG_PRINT_FUNCTION("Done.\n");
 }

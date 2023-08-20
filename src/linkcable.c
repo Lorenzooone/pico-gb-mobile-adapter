@@ -39,15 +39,13 @@ static void linkcable_isr(void) {
 #endif
 }
 
-bool disable_temporarily_if_timeout(void) {
+bool can_disable_linkcable_irq(void) {
     if(!is_enabled)
         return false;
     uint64_t old_time = saved_time;
     uint64_t curr_time = time_us_64();
-    if((curr_time - old_time) >= SEC(10)) {
-        linkcable_disable();
+    if((curr_time - old_time) >= SEC(3))
         return true;
-    }
     return false;
 }
 
