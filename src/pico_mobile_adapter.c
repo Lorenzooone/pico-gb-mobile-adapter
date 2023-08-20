@@ -123,7 +123,7 @@ void pico_mobile_loop(void) {
     // Check if there is any new config to write on Flash
     if(haveConfigToWrite){
         bool can_disable_irqs = can_disable_linkcable_irq();
-        if((!get_linkcable_can_interrupt()) || can_disable_irqs) {
+        if(can_disable_irqs) {
             SaveFlashConfig(mobile->config_eeprom, EEPROM_SIZE);
             haveConfigToWrite = false;
             currentTicks = 0;

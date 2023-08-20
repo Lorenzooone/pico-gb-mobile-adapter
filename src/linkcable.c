@@ -41,16 +41,12 @@ static void linkcable_isr(void) {
 
 bool can_disable_linkcable_irq(void) {
     if(!is_enabled)
-        return false;
+        return true;
     uint64_t old_time = saved_time;
     uint64_t curr_time = time_us_64();
-    if((curr_time - old_time) >= SEC(3))
+    if((curr_time - old_time) >= SEC(1))
         return true;
     return false;
-}
-
-bool get_linkcable_can_interrupt(void) {
-    return is_enabled;
 }
 
 static void linkcable_time_isr(void) {
