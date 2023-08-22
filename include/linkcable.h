@@ -3,7 +3,7 @@
 
 #include "hardware/pio.h"
 
-#define STACKSMASHING       1
+#define STACKSMASHING
 
 #define LINKCABLE_PIO       pio0
 #define LINKCABLE_SM        0
