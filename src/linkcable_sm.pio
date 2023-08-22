@@ -20,11 +20,11 @@ bitloop:
     in pins, 1              ; input rest of the bits one by one
     push noblock            ; push the received value to pico
     irq 0
-    set x, ((TOTAL_SLEEP_CYCLES/(WAIT_PER_NOP * NUM_NOPS)) - 1)
-sleeploop:
-    nop [WAIT_PER_NOP]
-    nop [WAIT_PER_NOP]
-    jmp x-- sleeploop
+    ;set x, ((TOTAL_SLEEP_CYCLES/(WAIT_PER_NOP * NUM_NOPS)) - 1)
+;sleeploop:
+    ;nop [WAIT_PER_NOP]
+    ;nop [WAIT_PER_NOP]
+    ;jmp x-- sleeploop
 .wrap
 
 % c-sdk {
