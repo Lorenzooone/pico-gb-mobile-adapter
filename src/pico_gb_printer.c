@@ -165,7 +165,7 @@ void fs_close_custom(struct fs_file *file) {
 
 // main loop
 int main(void) {
-    speed_240_MHz = set_sys_clock_khz(240000, false);
+    //speed_240_MHz = set_sys_clock_khz(240000, false);
 
     // For toggle_led
 #ifdef LED_PIN
