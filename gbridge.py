@@ -22,7 +22,7 @@ class GBridgeCommand:
         self.old_len = old_len
         self.is_split = False
         self.response_cmd = None
-        if (not (self.upper_cmd & GBridge.GBRIDGE_CMD_REPLY_F)) and (not (self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE)):
+        if (not (self.upper_cmd & GBridge.GBRIDGE_CMD_REPLY_F)) and (not (self.upper_cmd in GBridge.no_reply_upper_cmds)):
             self.response_cmd = self.upper_cmd | GBridge.GBRIDGE_CMD_REPLY_F
         self.command = None
         self.answer = []
@@ -43,7 +43,7 @@ class GBridgeCommand:
                 self.command = GBridgeCommand.GBRIDGE_PROT_MA_CMD_SEND
                 self.data = data
                 self.size = len(data)
-        if(self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE):
+        if(self.upper_cmd in GBridge.no_reply_upper_cmds):
             self.success_checksum = success_checksum
             self.data = data
             self.size = len(data)
@@ -106,14 +106,26 @@ class GBridgeCommand:
     def do_print(self):
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE:
             print(bytes(self.data).decode('utf-8'), end='')
+        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CHAR:
+            print(self.data)
 
 class GBridge:
     GBRIDGE_CMD_DEBUG_LINE = 0x02
+    GBRIDGE_CMD_DEBUG_CHAR = 0x03
     GBRIDGE_CMD_DATA = 0x0A
     GBRIDGE_CMD_STREAM = 0x0C
     GBRIDGE_CMD_DATA_PC = 0x4A
     GBRIDGE_CMD_STREAM_PC = 0x4C
     GBRIDGE_CMD_REPLY_F = 0x80
+    
+    no_reply_upper_cmds = {GBRIDGE_CMD_DEBUG_LINE, GBRIDGE_CMD_DEBUG_CHAR}
+    
+    cmd_lens = {
+        GBRIDGE_CMD_DATA: 1,
+        GBRIDGE_CMD_STREAM: 2,
+        GBRIDGE_CMD_DEBUG_LINE: 2,
+        GBRIDGE_CMD_DEBUG_CHAR: 2,
+    }
 
     def __init__(self):
         self.reset_cmd()
@@ -149,12 +161,8 @@ class GBridge:
             return None
         self.total_len += 1
         len_length = 0
-        if(self.curr_cmd == GBridge.GBRIDGE_CMD_DATA) and (len(self.curr_data) > 1):
-            len_length = 1
-        if(self.curr_cmd == GBridge.GBRIDGE_CMD_STREAM) and (len(self.curr_data) > 2):
-            len_length = 2
-        if(self.curr_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE):
-            len_length = 2
+        if(self.curr_cmd in GBridge.cmd_lens.keys()):
+            len_length = GBridge.cmd_lens[self.curr_cmd]
         if(len_length > 0) and (len(self.curr_data) > len_length):
             self.curr_len = int.from_bytes(self.curr_data[1 : 1 + len_length], byteorder='big')
         self.total_len += len_length + self.curr_len

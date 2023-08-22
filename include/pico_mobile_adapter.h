@@ -22,6 +22,7 @@ struct mobile_user {
     char number_peer[MOBILE_MAX_NUMBER_SIZE + 1];
 };
 
+struct mobile_user* get_mobile_user(void);
 void call_upkeep_callback(void);
 void link_cable_ISR(void);
 void pico_mobile_init(upkeep_callback callback);

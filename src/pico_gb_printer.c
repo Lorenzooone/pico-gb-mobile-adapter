@@ -11,6 +11,7 @@
 #include "bsp/board.h"
 #include "pico_mobile_adapter.h"
 #include "io_buffer.h"
+#include "bridge_debug_commands.h"
 
 #include "linkcable.h"
 
@@ -224,7 +225,9 @@ void handle_input_data(void) {
     for(int i = count; i < (MAX_TRANSFER_BYTES*2); i++)
         buf_in[i] = 0;
     uint32_t reported_num = buf_in[0];
-    if(count > 1) {
+    if((reported_num & 0xC0) == 0xC0)
+        interpret_debug_command(buf_in + 1, reported_num & 0x3F);
+    else if(count > 1) {
         if(reported_num > (count - 1))
             reported_num = count - 1;
         set_data_in(buf_in + 1, reported_num);

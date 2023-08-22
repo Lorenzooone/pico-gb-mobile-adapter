@@ -8,6 +8,26 @@ from time import sleep
 from gbridge import GBridge, GBridgeSocket
 import os
 
+import threading
+
+class KeyboardThread(threading.Thread):
+
+    def __init__(self):
+        super(KeyboardThread, self).__init__()
+        self.recieved = []
+        self.daemon = True
+        self.start()
+
+    def run(self):
+        while True:
+            self.recieved += [input()]
+
+    def get_input(self):
+        out = self.recieved
+        if(len(self.recieved) > 0):
+            self.recieved = []
+        return out
+
 dev = None
 epIn = None
 epOut = None
@@ -17,23 +37,35 @@ def kill_function():
     os.kill(os.getpid(), signal.SIGINT)
 
 def transfer_func(sender, receiver, list_sender, raw_receiver):
+    key_input = KeyboardThread()
     send_list = []
     print_data = True
     debug_print = True
+    TRANSFER_FLAGS_MASK = 0xC0
     DEBUG_TRANSFER_FLAG = 0x80
+    DEBUG_CMD_TRANSFER_FLAG = 0xC0
     limit = 0x40 - 1
     bridge = GBridge()
     bridge_debug = GBridge()
     bridge_sockets = GBridgeSocket()
     while(1):
+        is_dbg_cmd = False
+        if len(send_list) == 0:
+            is_dbg_cmd = True
+            for elem in key_input.get_input():
+                if elem == "GET EEPROM":
+                    send_list += [1]
         if len(send_list) == 0:
             sender(0, 1)
         else:
             num_elems = len(send_list)
             if(num_elems > limit):
                 num_elems = limit
+            out_val_elems = num_elems
+            if is_dbg_cmd:
+                out_val_elems |= DEBUG_CMD_TRANSFER_FLAG
             out_buf = []
-            out_buf += num_elems.to_bytes(1, byteorder='little')
+            out_buf += out_val_elems.to_bytes(1, byteorder='little')
             for i in range(num_elems):
                 out_buf += send_list[i].to_bytes(1, byteorder='little')
             if print_data:
@@ -43,10 +75,10 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
         curr_bridge = bridge
         read_data = raw_receiver(0x40)
         num_bytes = int.from_bytes(read_data[:1], byteorder='little')
-        is_debug = num_bytes & DEBUG_TRANSFER_FLAG
+        is_debug = (num_bytes & TRANSFER_FLAGS_MASK) == DEBUG_TRANSFER_FLAG
         if is_debug:
             curr_bridge = bridge_debug
-        num_bytes &= 0x7F
+        num_bytes &= 0x3F
         bytes = []
         if (num_bytes > 0) and (num_bytes <= (len(read_data) - 1)):
             for i in range(num_bytes):

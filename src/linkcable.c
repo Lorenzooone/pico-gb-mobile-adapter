@@ -88,7 +88,7 @@ void linkcable_reset(bool re_enable) {
         linkcable_enable();
 }
 
-void linkcable_set_is_32(uint32_t is_32) {
+void linkcable_set_is_32(bool is_32) {
     if(is_32)
         saved_bits = 32;
     else

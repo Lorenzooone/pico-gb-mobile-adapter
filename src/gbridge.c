@@ -175,9 +175,11 @@ void send_x_bytes(const uint8_t* buffer, uint32_t size, bool run_callback, bool 
     _send_x_bytes(buffer, size, cmd, size_length, run_callback, send_checksum, true, false);
 }
 
-void debug_send(uint8_t* buffer, uint32_t size)
+void debug_send(uint8_t* buffer, uint32_t size, bool is_char)
 {
     uint8_t cmd = GBRIDGE_CMD_DEBUG_LINE;
+    if(is_char)
+        cmd = GBRIDGE_CMD_DEBUG_CHAR;
     uint8_t size_length = 2;
     _send_x_bytes(buffer, size, cmd, size_length, true, true, false, true);
 }

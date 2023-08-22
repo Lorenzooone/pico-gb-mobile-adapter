@@ -137,13 +137,17 @@ static void mobile_validate_relay(){
     mobile_config_get_relay(mobile->adapter, &relay);
 }
 
+struct mobile_user* get_mobile_user(void) {
+    return mobile;
+}
+
 void impl_debug_log(void *user, const char *line){
     (void)user;
 #ifdef DO_SEND_DEBUG
     uint8_t debug_buffer[DEBUG_MAX_SIZE];
     uint32_t printed = snprintf(debug_buffer, DEBUG_MAX_SIZE - 1, "%s\n", line);
     debug_buffer[DEBUG_MAX_SIZE - 1] = 0;
-    debug_send(debug_buffer, printed + 1);
+    debug_send(debug_buffer, printed + 1, false);
 #else
     (void)line;
 #endif
@@ -158,7 +162,7 @@ static void impl_serial_enable(void *user, bool mode_32bit) {
     struct mobile_user *mobile = (struct mobile_user *)user;
 
     isLinkCable32 = mode_32bit;
-    linkcable_set_is_32(mode_32bit);
+    linkcable_set_is_32(isLinkCable32);
     linkcable_enable();
 }
 
@@ -172,12 +176,14 @@ static bool impl_config_read(void *user, void *dest, const uintptr_t offset, con
 
 static bool impl_config_write(void *user, const void *src, const uintptr_t offset, const size_t size) {
     struct mobile_user *mobile = (struct mobile_user *)user;
+    const uint8_t* src_8 = (const uint8_t *)src;
     for(int i = 0; i < size; i++){
-        mobile->config_eeprom[offset + i] = ((uint8_t *)src)[i];
-    }
 #ifdef USE_FLASH
-    haveConfigToWrite = true;
+        if(mobile->config_eeprom[offset + i] != src_8[i])
+            haveConfigToWrite = true;
 #endif
+        mobile->config_eeprom[offset + i] = src_8[i];
+    }
     return true;
 }
 
