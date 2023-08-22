@@ -60,7 +60,7 @@ static void key_callback(uint gpio, uint32_t events) {
     linkcable_reset();
     protocol_reset();
     receive_data_reset();
-    LED_OFF;
+    //LED_OFF;
 }
 #endif
 
@@ -176,20 +176,20 @@ int main(void) {
 
 #ifdef PIN_KEY
     // set up key
-    gpio_init(PIN_KEY);
-    gpio_set_dir(PIN_KEY, GPIO_IN);
-    gpio_set_irq_enabled_with_callback(PIN_KEY, GPIO_IRQ_EDGE_RISE, true, &key_callback);
+    //gpio_init(PIN_KEY);
+    //gpio_set_dir(PIN_KEY, GPIO_IN);
+    //gpio_set_irq_enabled_with_callback(PIN_KEY, GPIO_IRQ_EDGE_RISE, true, &key_callback);
 #endif
 
     // Initialize tinyusb, lwip, dhcpd, dnsd and httpd
     init_lwip();
 
-    wait_for_netif_is_up();
-    dhcpd_init();
-    dns_init();
-    httpd_init();
-    http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
-    http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
+    //wait_for_netif_is_up();
+    //dhcpd_init();
+    //dns_init();
+    //httpd_init();
+    //http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
+    //http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
 
     linkcable_init(link_cable_ISR);
 
@@ -201,7 +201,7 @@ int main(void) {
         // process USB
         tud_task();
         // process WEB
-        service_traffic();
+        //service_traffic();
     }
 
     return 0;
