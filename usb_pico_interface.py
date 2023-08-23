@@ -39,7 +39,7 @@ def kill_function():
 def transfer_func(sender, receiver, list_sender, raw_receiver):
     key_input = KeyboardThread()
     send_list = []
-    print_data = True
+    print_data = False
     debug_print = True
     TRANSFER_FLAGS_MASK = 0xC0
     DEBUG_TRANSFER_FLAG = 0x80

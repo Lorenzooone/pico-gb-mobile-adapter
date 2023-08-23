@@ -107,7 +107,15 @@ class GBridgeCommand:
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE:
             print(bytes(self.data).decode('utf-8'), end='')
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CHAR:
-            print(self.data)
+            string_out = "["
+            for i in range(len(self.data)):
+                value = self.data[i]
+                if value < 0x10:
+                    string_out += " "
+                string_out += str(hex(value)) + ", "
+            string_out = string_out[: -2]
+            string_out += "]"
+            print(string_out)
 
 class GBridge:
     GBRIDGE_CMD_DEBUG_LINE = 0x02
@@ -243,7 +251,7 @@ class GBridgeSocket:
         return out_bytes
 
     def __init__(self):
-        self.debug_prints = True
+        self.debug_prints = False
         self.conn_data_last = None
         self.print_exception = True
         self.connect_socket = []
