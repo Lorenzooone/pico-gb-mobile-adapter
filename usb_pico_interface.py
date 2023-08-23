@@ -40,11 +40,13 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
     key_input = KeyboardThread()
     send_list = []
     print_data = False
-    debug_print = True
+    debug_print = False
     TRANSFER_FLAGS_MASK = 0xC0
     DEBUG_TRANSFER_FLAG = 0x80
     DEBUG_CMD_TRANSFER_FLAG = 0xC0
+    SEND_EEPROM_CMD = 1
     limit = 0x40 - 1
+    save_path = ""
     bridge = GBridge()
     bridge_debug = GBridge()
     bridge_sockets = GBridgeSocket()
@@ -54,7 +56,12 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
             is_dbg_cmd = True
             for elem in key_input.get_input():
                 if elem == "GET EEPROM":
-                    send_list += [1]
+                    send_list += [SEND_EEPROM_CMD]
+                if elem.startswith("SAVE EEPROM"):
+                    send_list += [SEND_EEPROM_CMD]
+                    tokens = elem.split()
+                    if(len(tokens) > 2):
+                        save_path = tokens[2].strip()
         if len(send_list) == 0:
             sender(0, 1)
         else:
@@ -91,6 +98,7 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
                 curr_cmd = curr_bridge.init_cmd(bytes)
                 if(curr_cmd is not None):
                     bytes = bytes[curr_cmd.total_len - curr_cmd.old_len:]
+                    curr_cmd.check_save(save_path)
                     if debug_print:
                         curr_cmd.do_print()
                     if(curr_cmd.response_cmd is not None):

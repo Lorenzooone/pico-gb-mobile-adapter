@@ -107,32 +107,46 @@ class GBridgeCommand:
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE:
             print(bytes(self.data).decode('utf-8'), end='')
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CHAR:
-            string_out = "["
-            for i in range(len(self.data)):
-                value = self.data[i]
-                if value < 0x10:
-                    string_out += " "
-                string_out += str(hex(value)) + ", "
-            string_out = string_out[: -2]
-            string_out += "]"
-            print(string_out)
+            print(GBridgeCommand.prepare_hex_list_str(self.data))
+        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CFG:
+            print(GBridgeCommand.prepare_hex_list_str(self.data))
+    
+    def check_save(self, path):
+        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CFG:
+            if path != "":
+                with open(path, "wb") as f:
+                    f.write(bytes(self.data))
+    
+    def prepare_hex_list_str(values):
+        string_out = "["
+        for i in range(len(values)):
+            value = values[i]
+            if value < 0x10:
+                string_out += " "
+            string_out += str(hex(value)) + ", "
+        string_out = string_out[: -2]
+        string_out += "]"
+        return string_out
+        
 
 class GBridge:
     GBRIDGE_CMD_DEBUG_LINE = 0x02
     GBRIDGE_CMD_DEBUG_CHAR = 0x03
+    GBRIDGE_CMD_DEBUG_CFG = 0x06
     GBRIDGE_CMD_DATA = 0x0A
     GBRIDGE_CMD_STREAM = 0x0C
     GBRIDGE_CMD_DATA_PC = 0x4A
     GBRIDGE_CMD_STREAM_PC = 0x4C
     GBRIDGE_CMD_REPLY_F = 0x80
     
-    no_reply_upper_cmds = {GBRIDGE_CMD_DEBUG_LINE, GBRIDGE_CMD_DEBUG_CHAR}
+    no_reply_upper_cmds = {GBRIDGE_CMD_DEBUG_LINE, GBRIDGE_CMD_DEBUG_CHAR, GBRIDGE_CMD_DEBUG_CFG}
     
     cmd_lens = {
         GBRIDGE_CMD_DATA: 1,
         GBRIDGE_CMD_STREAM: 2,
         GBRIDGE_CMD_DEBUG_LINE: 2,
         GBRIDGE_CMD_DEBUG_CHAR: 2,
+        GBRIDGE_CMD_DEBUG_CFG: 2
     }
 
     def __init__(self):

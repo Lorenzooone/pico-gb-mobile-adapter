@@ -18,6 +18,7 @@ enum gbridge_cmd {
     GBRIDGE_CMD_PING = 0x01,
     GBRIDGE_CMD_DEBUG_LINE = 0x02,
     GBRIDGE_CMD_DEBUG_CHAR = 0x03,
+    GBRIDGE_CMD_DEBUG_CFG = 0x06,
     GBRIDGE_CMD_DATA = 0x0A,
     GBRIDGE_CMD_DATA_FAIL = 0x0B,  // Checksum failure, retry
     GBRIDGE_CMD_STREAM = 0x0C,
@@ -50,6 +51,6 @@ enum gbma_prot_cmd {
 
 bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool expected_data, uint32_t limit, uint32_t* read_size);
 void send_x_bytes(const uint8_t* buffer, uint32_t size, bool run_callback, bool send_checksum, bool is_data);
-void debug_send(uint8_t* buffer, uint32_t size, bool is_raw_bytes);
+void debug_send(uint8_t* buffer, uint32_t size, enum gbridge_cmd cmd);
 
 #endif /* _GBRIDGE_H_ */

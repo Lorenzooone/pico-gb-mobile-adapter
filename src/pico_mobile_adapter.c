@@ -163,8 +163,8 @@ struct mobile_user* get_mobile_user(void) {
 
 #ifdef LOG_DIRECT_SEND_RECV
 static void print_last_linkcable(void) {
-    debug_send(log_linkcable_buffer_in, LOG_BUFFER_SIZE << 2, true);
-    debug_send(log_linkcable_buffer_out, LOG_BUFFER_SIZE << 2, true);
+    debug_send(log_linkcable_buffer_in, LOG_BUFFER_SIZE << 2, GBRIDGE_CMD_DEBUG_CHAR);
+    debug_send(log_linkcable_buffer_out, LOG_BUFFER_SIZE << 2, GBRIDGE_CMD_DEBUG_CHAR);
 }
 #endif
 
@@ -174,7 +174,7 @@ void impl_debug_log(void *user, const char *line){
     uint8_t debug_buffer[DEBUG_MAX_SIZE];
     uint32_t printed = snprintf(debug_buffer, DEBUG_MAX_SIZE - 1, "%s\n", line);
     debug_buffer[DEBUG_MAX_SIZE - 1] = 0;
-    debug_send(debug_buffer, printed + 1, false);
+    debug_send(debug_buffer, printed + 1, GBRIDGE_CMD_DEBUG_LINE);
 #else
     (void)line;
 #endif

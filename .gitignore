@@ -4,3 +4,4 @@ __pycache__
 makefsdata
 unused
 gen_build.bat
+*.bin

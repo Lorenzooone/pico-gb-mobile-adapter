@@ -18,7 +18,7 @@ void interpret_debug_command(uint8_t* src, uint8_t size) {
 
     switch(src[0]) {
         case SEND_EEPROM_CMD:
-            debug_send(mobile->config_eeprom, EEPROM_SIZE, true);
+            debug_send(mobile->config_eeprom, EEPROM_SIZE, GBRIDGE_CMD_DEBUG_CFG);
             break;
         default:
             break;

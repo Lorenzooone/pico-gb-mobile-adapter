@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.13)
 
 include(pico_sdk_import.cmake)
 project(pico_gb_mobile_adapter)
+#set(LIBMOBILE_ENABLE_NO32BIT ON)
 #set(PICO_CXX_ENABLE_EXCEPTIONS 1)
 pico_sdk_init()
 
