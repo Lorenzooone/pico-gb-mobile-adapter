@@ -6,7 +6,7 @@
 
 #include "linkcable.h"
 
-#define FAST_ALIGNMENT
+//#define FAST_ALIGNMENT
 
 #ifdef STACKSMASHING
     #include "linkcable_sm.pio.h"
@@ -63,7 +63,7 @@ void clean_linkcable_fifos(void) {
 
 void linkcable_reset(void) {
     pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, false);
-    pio_sm_clear_fifos(LINKCABLE_PIO, LINKCABLE_SM);
+    clean_linkcable_fifos();
     pio_sm_restart(LINKCABLE_PIO, LINKCABLE_SM);
     pio_sm_clkdiv_restart(LINKCABLE_PIO, LINKCABLE_SM);
     pio_sm_exec(LINKCABLE_PIO, LINKCABLE_SM, pio_encode_jmp(linkcable_pio_initial_pc));

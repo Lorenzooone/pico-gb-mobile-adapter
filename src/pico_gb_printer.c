@@ -184,14 +184,14 @@ int main(void) {
 #endif
 
     // Initialize tinyusb, lwip, dhcpd, dnsd and httpd
-    init_lwip();
+    //init_lwip();
 
-    wait_for_netif_is_up();
-    dhcpd_init();
-    dns_init();
-    httpd_init();
-    http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
-    http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
+    //wait_for_netif_is_up();
+    //dhcpd_init();
+    //dns_init();
+    //httpd_init();
+    //http_set_cgi_handlers(cgi_handlers, LWIP_ARRAYSIZE(cgi_handlers));
+    //http_set_ssi_handler(ssi_handler, ssi_tags, LWIP_ARRAYSIZE(ssi_tags));
 
     linkcable_init(link_cable_ISR);
 
@@ -201,9 +201,9 @@ int main(void) {
 
     while (true) {
         // process USB
-        tud_task();
+        //tud_task();
         // process WEB
-        service_traffic();
+        //service_traffic();
     }
 
     return 0;
