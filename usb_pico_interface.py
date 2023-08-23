@@ -28,6 +28,75 @@ class KeyboardThread(threading.Thread):
             self.recieved = []
         return out
 
+class SocketThread(threading.Thread):
+
+    def __init__(self):
+        super(SocketThread, self).__init__()
+        self.daemon = True
+        self.start_processing = False
+        self.done_processing = False
+        self.bridge = GBridge()
+        self.bridge_debug = GBridge()
+        self.bridge_sockets = GBridgeSocket()
+        self.start()
+
+    def run(self):
+        TRANSFER_FLAGS_MASK = 0xC0
+        DEBUG_TRANSFER_FLAG = 0x80
+        print_data_in = False
+        debug_print = True
+
+        while True:
+            while not self.start_processing:
+                sleep(0.01)
+            send_list = []
+            read_data = self.data
+            save_path = self.save_path
+            num_bytes = int.from_bytes(read_data[:1], byteorder='little')
+
+            curr_bridge = self.bridge
+            is_debug = (num_bytes & TRANSFER_FLAGS_MASK) == DEBUG_TRANSFER_FLAG
+            if is_debug:
+                curr_bridge = self.bridge_debug
+
+            num_bytes &= 0x3F
+            bytes = []
+            if (num_bytes > 0) and (num_bytes <= (len(read_data) - 1)):
+                for i in range(num_bytes):
+                    bytes += [int.from_bytes(read_data[(i + 1):(i + 2)], byteorder='little')]
+
+                curr_cmd = True
+                if print_data_in and (not is_debug):
+                    print("IN: " + str(bytes))
+                while curr_cmd is not None:
+                    curr_cmd = curr_bridge.init_cmd(bytes)
+                    if(curr_cmd is not None):
+                        bytes = bytes[curr_cmd.total_len - curr_cmd.old_len:]
+                        curr_cmd.check_save(save_path)
+                        if debug_print:
+                            curr_cmd.do_print()
+                        if(curr_cmd.response_cmd is not None):
+                            send_list += [curr_cmd.response_cmd]
+                            if(curr_cmd.process(self.bridge_sockets)):
+                                send_list += GBridge.prepare_cmd(curr_cmd.result_to_send(), False)
+                                send_list += GBridge.prepare_cmd(curr_cmd.get_if_pending(), True)
+            
+            self.out_data = send_list
+            self.start_processing = False
+            self.done_processing = True
+
+    def set_processing(self, data, save_path):
+        self.data = data
+        self.save_path = save_path
+        self.done_processing = False
+        self.start_processing = True
+            
+
+    def get_processed(self):
+        while not self.done_processing:
+            sleep(0.01)
+        return self.out_data
+
 dev = None
 epIn = None
 epOut = None
@@ -73,45 +142,9 @@ def send_func(sender, list_sender, analyzed_list, is_debug_cmd):
         analyzed_list = analyzed_list[num_elems:]
     return analyzed_list
 
-def recv_func(raw_receiver, bridge, bridge_debug, bridge_sockets, send_list, save_path):
-    TRANSFER_FLAGS_MASK = 0xC0
-    DEBUG_TRANSFER_FLAG = 0x80
-    print_data_in = False
-    debug_print = True
-    
-    read_data = raw_receiver(0x40)
-    num_bytes = int.from_bytes(read_data[:1], byteorder='little')
-
-    curr_bridge = bridge
-    is_debug = (num_bytes & TRANSFER_FLAGS_MASK) == DEBUG_TRANSFER_FLAG
-    if is_debug:
-        curr_bridge = bridge_debug
-
-    num_bytes &= 0x3F
-    bytes = []
-    if (num_bytes > 0) and (num_bytes <= (len(read_data) - 1)):
-        for i in range(num_bytes):
-            bytes += [int.from_bytes(read_data[(i + 1):(i + 2)], byteorder='little')]
-
-        curr_cmd = True
-        if print_data_in and (not is_debug):
-            print("IN: " + str(bytes))
-        while curr_cmd is not None:
-            curr_cmd = curr_bridge.init_cmd(bytes)
-            if(curr_cmd is not None):
-                bytes = bytes[curr_cmd.total_len - curr_cmd.old_len:]
-                curr_cmd.check_save(save_path)
-                if debug_print:
-                    curr_cmd.do_print()
-                if(curr_cmd.response_cmd is not None):
-                    send_list += [curr_cmd.response_cmd]
-                    if(curr_cmd.process(bridge_sockets)):
-                        send_list += GBridge.prepare_cmd(curr_cmd.result_to_send(), False)
-                        send_list += GBridge.prepare_cmd(curr_cmd.get_if_pending(), True)
-    return send_list
-
 def transfer_func(sender, receiver, list_sender, raw_receiver):
     key_input = KeyboardThread()
+    out_data_preparer = SocketThread()
     send_list = []
     debug_send_list = []
     save_path = ""
@@ -126,9 +159,9 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
         else:
             send_list = send_func(sender, list_sender, send_list, False)
         
+        out_data_preparer.set_processing(raw_receiver(0x40), save_path)
+        send_list += out_data_preparer.get_processed()
         sleep(0.05)
-
-        send_list = recv_func(raw_receiver, bridge, bridge_debug, bridge_sockets, send_list, save_path)
 
 # Code dependant on this connection method
 def sendByte(byte_to_send, num_bytes):
