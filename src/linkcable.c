@@ -10,7 +10,7 @@
 #define MSEC(x) (MUSEC(x) * 1000)
 #define SEC(x) (MSEC(x) * 1000)
 
-#define FAST_ALIGNMENT
+//#define FAST_ALIGNMENT
 
 #ifdef STACKSMASHING
     #include "linkcable_sm.pio.h"
