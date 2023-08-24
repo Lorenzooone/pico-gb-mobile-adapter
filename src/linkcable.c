@@ -185,7 +185,7 @@ void linkcable_pre_split(void) {
     *is_linkcable_ready = false;
 }
 
-volatile void linkcable_init(irq_handler_t onDataReceive) {
+void linkcable_init(irq_handler_t onDataReceive) {
     saved_bits = DEFAULT_SAVED_BITS;
 #ifdef STACKSMASHING
     linkcable_sm_program_init(LINKCABLE_PIO, LINKCABLE_SM, linkcable_pio_initial_pc = pio_add_program(LINKCABLE_PIO, &linkcable_sm_program), DEFAULT_SAVED_BITS);
