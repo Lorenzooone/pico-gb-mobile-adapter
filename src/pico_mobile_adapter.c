@@ -11,6 +11,7 @@
 #include "gbridge.h"
 #include "linkcable.h"
 #include "flash_eeprom.h"
+#include "useful_qualifiers.h"
 
 #define USE_FLASH
 #define DEBUG_MAX_SIZE 0x200
@@ -56,7 +57,7 @@ void call_upkeep_callback(void) {
         saved_callback();
 }
 
-void link_cable_ISR(void) {
+void TIME_SENSITIVE(link_cable_ISR)(void) {
     uint32_t data = linkcable_receive();
 #ifdef LOG_DIRECT_SEND_RECV
     for(int i = 0; i < LOG_BUFFER_SIZE - 1; i++)

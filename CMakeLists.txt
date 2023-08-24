@@ -4,6 +4,7 @@ include(pico_sdk_import.cmake)
 project(pico_gb_mobile_adapter)
 #set(LIBMOBILE_ENABLE_NO32BIT ON)
 #set(PICO_CXX_ENABLE_EXCEPTIONS 1)
+#set(LIBMOBILE_TIME_SENSITIVE "__attribute__((section(\".time_critical.\" #x))) x")
 pico_sdk_init()
 
 # Extra stuff from TinyUSB, that is not part of tinyusb_device library
