@@ -16,11 +16,6 @@
 #define USE_FLASH
 #define DEBUG_MAX_SIZE 0x200
 #define IDLE_COMMAND 0xD2
-
-//#define LOG_DIRECT_SEND_RECV
-#ifdef LOG_DIRECT_SEND_RECV
-#define LOG_BUFFER_SIZE 0x80
-#endif
 //#define SET_DEFAULT_DNS
 
 static void mobile_validate_relay(void);
@@ -36,11 +31,6 @@ static void impl_update_number(void *user, enum mobile_number type, const char *
 #define DNS_DEFAULT_PORT 53
 const char default_dns_ip[] = {DNS_DEFAULT_IP};
 const uint16_t default_dns_port = DNS_DEFAULT_PORT;
-
-#ifdef LOG_DIRECT_SEND_RECV
-uint32_t log_linkcable_buffer_out[LOG_BUFFER_SIZE];
-uint32_t log_linkcable_buffer_in[LOG_BUFFER_SIZE];
-#endif
 
 //Control Flash Write
 bool haveConfigToWrite = false;
@@ -59,21 +49,11 @@ void call_upkeep_callback(void) {
 
 void TIME_SENSITIVE(link_cable_ISR)(void) {
     uint32_t data = linkcable_receive();
-#ifdef LOG_DIRECT_SEND_RECV
-    for(int i = 0; i < LOG_BUFFER_SIZE - 1; i++)
-        log_linkcable_buffer_in[i] = log_linkcable_buffer_in[i + 1];
-    log_linkcable_buffer_in[LOG_BUFFER_SIZE - 1] = data;
-#endif
     if(isLinkCable32){
         data = mobile_transfer_32bit(mobile->adapter, data);
     }else{
         data = mobile_transfer(mobile->adapter, data);
     }
-#ifdef LOG_DIRECT_SEND_RECV
-    for(int i = 0; i < LOG_BUFFER_SIZE - 1; i++)
-        log_linkcable_buffer_out[i] = log_linkcable_buffer_out[i + 1];
-    log_linkcable_buffer_out[LOG_BUFFER_SIZE - 1] = data;
-#endif
     clean_linkcable_fifos();
     linkcable_send(data);
 }
@@ -162,13 +142,6 @@ struct mobile_user* get_mobile_user(void) {
     return mobile;
 }
 
-#ifdef LOG_DIRECT_SEND_RECV
-static void print_last_linkcable(void) {
-    debug_send(log_linkcable_buffer_in, LOG_BUFFER_SIZE << 2, GBRIDGE_CMD_DEBUG_CHAR);
-    debug_send(log_linkcable_buffer_out, LOG_BUFFER_SIZE << 2, GBRIDGE_CMD_DEBUG_CHAR);
-}
-#endif
-
 void impl_debug_log(void *user, const char *line){
     (void)user;
 #ifdef DO_SEND_DEBUG
@@ -184,6 +157,7 @@ void impl_debug_log(void *user, const char *line){
 static void impl_serial_disable(void *user) {
     struct mobile_user *mobile = (struct mobile_user *)user;
     linkcable_disable(); 
+    print_last_linkcable();
 }
 
 static void impl_serial_enable(void *user, bool mode_32bit) {

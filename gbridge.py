@@ -30,12 +30,13 @@ class GBridgeCommand:
         if(self.upper_cmd == GBridge.GBRIDGE_CMD_DATA):
             self.success_checksum = success_checksum
             if(self.success_checksum):
-                self.command = data[0]
-                if(self.command == GBridgeCommand.GBRIDGE_PROT_MA_CMD_SEND):
-                    GBridgeCommand.last_send = self
-                    self.command = None
-                self.size = len(data)
-                self.data = data[1:]
+                if(len(data) > 0):
+                    self.command = data[0]
+                    if(self.command == GBridgeCommand.GBRIDGE_PROT_MA_CMD_SEND):
+                        GBridgeCommand.last_send = self
+                        self.command = None
+                    self.size = len(data)
+                    self.data = data[1:]
             
         if(self.upper_cmd == GBridge.GBRIDGE_CMD_STREAM):
             self.success_checksum = success_checksum
@@ -111,11 +112,43 @@ class GBridgeCommand:
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CFG:
             print(GBridgeCommand.prepare_hex_list_str(self.data))
     
-    def check_save(self, path):
-        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CFG:
-            if path != "":
-                with open(path, "wb") as f:
+    def prepare_str_out(self, size_entry):
+        str_out = ""
+        for i in range(int(len(self.data) / size_entry)):
+            str_out += str(int.from_bytes(self.data[i * size_entry: (i + 1) * size_entry], byteorder='little')) + "\n"
+        return str_out
+    
+    def check_save(self, save_requests):
+        if (self.upper_cmd in save_requests.keys()) and (save_requests[self.upper_cmd] != ""):
+            single_byte_saves = {GBridge.GBRIDGE_CMD_DEBUG_CFG, GBridge.GBRIDGE_CMD_DEBUG_LOG_IN, GBridge.GBRIDGE_CMD_DEBUG_LOG_OUT}
+            uint8_t_saves = {}
+            uint16_t_saves = {GBridge.GBRIDGE_CMD_DEBUG_TIME_TR, GBridge.GBRIDGE_CMD_DEBUG_TIME_AC}
+            uint32_t_saves = {}
+            uint64_t_saves = {}
+            if self.upper_cmd in single_byte_saves:
+                with open(save_requests[self.upper_cmd], "wb") as f:
                     f.write(bytes(self.data))
+                save_requests[self.upper_cmd] = ""
+            if self.upper_cmd in uint8_t_saves:
+                str_out = self.prepare_str_out(1)
+                with open(save_requests[self.upper_cmd], "w") as f:
+                    f.write(str_out)
+                save_requests[self.upper_cmd] = ""
+            if self.upper_cmd in uint16_t_saves:
+                str_out = self.prepare_str_out(2)
+                with open(save_requests[self.upper_cmd], "w") as f:
+                    f.write(str_out)
+                save_requests[self.upper_cmd] = ""
+            if self.upper_cmd in uint32_t_saves:
+                str_out = self.prepare_str_out(4)
+                with open(save_requests[self.upper_cmd], "w") as f:
+                    f.write(str_out)
+                save_requests[self.upper_cmd] = ""
+            if self.upper_cmd in uint64_t_saves:
+                str_out = self.prepare_str_out(8)
+                with open(save_requests[self.upper_cmd], "w") as f:
+                    f.write(str_out)
+                save_requests[self.upper_cmd] = ""
     
     def prepare_hex_list_str(values):
         string_out = "["
@@ -132,21 +165,29 @@ class GBridgeCommand:
 class GBridge:
     GBRIDGE_CMD_DEBUG_LINE = 0x02
     GBRIDGE_CMD_DEBUG_CHAR = 0x03
-    GBRIDGE_CMD_DEBUG_CFG = 0x06
+    GBRIDGE_CMD_DEBUG_CFG = 0x05
+    GBRIDGE_CMD_DEBUG_LOG_IN = 0x06
+    GBRIDGE_CMD_DEBUG_LOG_OUT = 0x07
+    GBRIDGE_CMD_DEBUG_TIME_TR = 0x08
+    GBRIDGE_CMD_DEBUG_TIME_AC = 0x09
     GBRIDGE_CMD_DATA = 0x0A
     GBRIDGE_CMD_STREAM = 0x0C
     GBRIDGE_CMD_DATA_PC = 0x4A
     GBRIDGE_CMD_STREAM_PC = 0x4C
     GBRIDGE_CMD_REPLY_F = 0x80
     
-    no_reply_upper_cmds = {GBRIDGE_CMD_DEBUG_LINE, GBRIDGE_CMD_DEBUG_CHAR, GBRIDGE_CMD_DEBUG_CFG}
+    no_reply_upper_cmds = {GBRIDGE_CMD_DEBUG_LINE, GBRIDGE_CMD_DEBUG_CHAR, GBRIDGE_CMD_DEBUG_CFG, GBRIDGE_CMD_DEBUG_LOG_IN, GBRIDGE_CMD_DEBUG_LOG_OUT, GBRIDGE_CMD_DEBUG_TIME_TR, GBRIDGE_CMD_DEBUG_TIME_AC}
     
     cmd_lens = {
         GBRIDGE_CMD_DATA: 1,
         GBRIDGE_CMD_STREAM: 2,
         GBRIDGE_CMD_DEBUG_LINE: 2,
         GBRIDGE_CMD_DEBUG_CHAR: 2,
-        GBRIDGE_CMD_DEBUG_CFG: 2
+        GBRIDGE_CMD_DEBUG_CFG: 2,
+        GBRIDGE_CMD_DEBUG_LOG_IN: 2,
+        GBRIDGE_CMD_DEBUG_LOG_OUT: 2,
+        GBRIDGE_CMD_DEBUG_TIME_TR: 2,
+        GBRIDGE_CMD_DEBUG_TIME_AC: 2
     }
 
     def __init__(self):

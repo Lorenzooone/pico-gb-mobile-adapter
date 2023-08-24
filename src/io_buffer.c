@@ -1,8 +1,15 @@
 #include "io_buffer.h"
 
 #define OUT_BUFFER_SIZE 0x100
-#define DEBUG_OUT_BUFFER_SIZE 0x800
 #define IN_BUFFER_SIZE 0x100
+
+//#define BIG_BUFFER
+
+#ifdef BIG_BUFFER
+#define DEBUG_OUT_BUFFER_SIZE 0x9000
+#else
+#define DEBUG_OUT_BUFFER_SIZE 0x800
+#endif
 
 struct io_buffer {
     uint8_t *p;
