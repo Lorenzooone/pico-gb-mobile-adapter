@@ -13,6 +13,7 @@
 #include "io_buffer.h"
 #include "bridge_debug_commands.h"
 #include "pico/multicore.h"
+#include "useful_qualifiers.h"
 
 #include "linkcable.h"
 
@@ -39,6 +40,10 @@ enum  {
 
 //#define OVERCLOCK
 //#define USE_CORE_1_AS_WELL
+// Not currently used because Flash-saving handling
+// would need special code to stop temporarily Core 1.
+// Can be used with PICO_COPY_TO_RAM to have a fixed high speed for irqs.
+// Though, for this project, it's not needed...
 
 #define DEBUG_TRANSFER_FLAG 0x80
 
@@ -69,7 +74,7 @@ void cdc_task(void);
 void webserial_task(void);
 void loop_upkeep_functions(void);
 
-void core_1_main() {
+void TIME_SENSITIVE(core_1_main)(void) {
     linkcable_init(link_cable_ISR);
     while(1);
 }
@@ -89,11 +94,10 @@ int main(void) {
     // Initialize tinyusb
     tusb_init();
 
-    pico_mobile_init(loop_upkeep_functions);
 #ifndef USE_CORE_1_AS_WELL
     linkcable_init(link_cable_ISR);
 #endif
-    linkcable_enable();
+    pico_mobile_init(loop_upkeep_functions);
 
     while (true) {
         pico_mobile_loop();

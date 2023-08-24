@@ -4,6 +4,7 @@ include(pico_sdk_import.cmake)
 project(pico_gb_mobile_adapter)
 #set(LIBMOBILE_ENABLE_NO32BIT ON)
 #set(PICO_CXX_ENABLE_EXCEPTIONS 1)
+#set(PICO_COPY_TO_RAM 1)
 set(LIBMOBILE_TIME_SENSITIVE "__attribute__((section(\".time_critical.\" #x))) x")
 pico_sdk_init()
 

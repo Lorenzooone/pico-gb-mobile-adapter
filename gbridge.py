@@ -112,18 +112,40 @@ class GBridgeCommand:
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CFG:
             print(GBridgeCommand.prepare_hex_list_str(self.data))
     
+    def prepare_str_out(self, size_entry):
+        str_out = ""
+        for i in range(int(len(self.data) / size_entry)):
+            str_out += str(int.from_bytes(self.data[i * size_entry: (i + 1) * size_entry], byteorder='little')) + "\n"
+        return str_out
+    
     def check_save(self, save_requests):
         if (self.upper_cmd in save_requests.keys()) and (save_requests[self.upper_cmd] != ""):
             single_byte_saves = {GBridge.GBRIDGE_CMD_DEBUG_CFG, GBridge.GBRIDGE_CMD_DEBUG_LOG_IN, GBridge.GBRIDGE_CMD_DEBUG_LOG_OUT}
-            uint64_t_saves = {GBridge.GBRIDGE_CMD_DEBUG_TIME_TR, GBridge.GBRIDGE_CMD_DEBUG_TIME_AC}
+            uint8_t_saves = {}
+            uint16_t_saves = {GBridge.GBRIDGE_CMD_DEBUG_TIME_TR, GBridge.GBRIDGE_CMD_DEBUG_TIME_AC}
+            uint32_t_saves = {}
+            uint64_t_saves = {}
             if self.upper_cmd in single_byte_saves:
                 with open(save_requests[self.upper_cmd], "wb") as f:
                     f.write(bytes(self.data))
                 save_requests[self.upper_cmd] = ""
+            if self.upper_cmd in uint8_t_saves:
+                str_out = self.prepare_str_out(1)
+                with open(save_requests[self.upper_cmd], "w") as f:
+                    f.write(str_out)
+                save_requests[self.upper_cmd] = ""
+            if self.upper_cmd in uint16_t_saves:
+                str_out = self.prepare_str_out(2)
+                with open(save_requests[self.upper_cmd], "w") as f:
+                    f.write(str_out)
+                save_requests[self.upper_cmd] = ""
+            if self.upper_cmd in uint32_t_saves:
+                str_out = self.prepare_str_out(4)
+                with open(save_requests[self.upper_cmd], "w") as f:
+                    f.write(str_out)
+                save_requests[self.upper_cmd] = ""
             if self.upper_cmd in uint64_t_saves:
-                str_out = ""
-                for i in range(int(len(self.data) / 8)):
-                    str_out += str(int.from_bytes(self.data[i * 8: (i + 1) * 8], byteorder='little')) + "\n"
+                str_out = self.prepare_str_out(8)
                 with open(save_requests[self.upper_cmd], "w") as f:
                     f.write(str_out)
                 save_requests[self.upper_cmd] = ""
