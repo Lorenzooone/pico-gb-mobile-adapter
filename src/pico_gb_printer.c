@@ -12,6 +12,7 @@
 #include "pico_mobile_adapter.h"
 #include "io_buffer.h"
 #include "bridge_debug_commands.h"
+#include "pico/multicore.h"
 
 #include "linkcable.h"
 
@@ -37,6 +38,7 @@ enum  {
 };
 
 //#define OVERCLOCK
+//#define USE_CORE_1_AS_WELL
 
 #define DEBUG_TRANSFER_FLAG 0x80
 
@@ -67,9 +69,18 @@ void cdc_task(void);
 void webserial_task(void);
 void loop_upkeep_functions(void);
 
+void core_1_main() {
+    linkcable_init(link_cable_ISR);
+    while(1);
+}
+
 // main loop
 int main(void) {
     board_init();
+    linkcable_pre_split();
+#ifdef USE_CORE_1_AS_WELL
+    multicore_launch_core1(&core_1_main);
+#endif
 
 #ifdef OVERCLOCK
     speed_240_MHz = set_sys_clock_khz(240000, false);
@@ -79,7 +90,9 @@ int main(void) {
     tusb_init();
 
     pico_mobile_init(loop_upkeep_functions);
+#ifndef USE_CORE_1_AS_WELL
     linkcable_init(link_cable_ISR);
+#endif
     linkcable_enable();
 
     while (true) {

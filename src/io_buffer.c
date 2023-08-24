@@ -1,7 +1,7 @@
 #include "io_buffer.h"
 
 #define OUT_BUFFER_SIZE 0x100
-#define DEBUG_OUT_BUFFER_SIZE 0x800
+#define DEBUG_OUT_BUFFER_SIZE 0x9000
 #define IN_BUFFER_SIZE 0x100
 
 struct io_buffer {
