@@ -36,7 +36,7 @@ max_usb_timeout = 5
 def kill_function():
     os.kill(os.getpid(), signal.SIGINT)
     
-def interpret_input_keyboard(key_input, debug_send_list, save_path):
+def interpret_input_keyboard(key_input, debug_send_list, save_requests):
     SEND_EEPROM_CMD = 1
 
     for elem in key_input.get_input():
@@ -47,7 +47,27 @@ def interpret_input_keyboard(key_input, debug_send_list, save_path):
             tokens = elem.split()
             if(len(tokens) > 2):
                 save_path = tokens[2].strip()
-    return save_path
+                save_requests[GBridge.GBRIDGE_CMD_DEBUG_CFG] = save_path
+        if elem.startswith("SAVE DBG_IN"):
+            tokens = elem.split()
+            if(len(tokens) > 2):
+                save_path = tokens[2].strip()
+                save_requests[GBridge.GBRIDGE_CMD_DEBUG_LOG_IN] = save_path
+        if elem.startswith("SAVE DBG_OUT"):
+            tokens = elem.split()
+            if(len(tokens) > 2):
+                save_path = tokens[2].strip()
+                save_requests[GBridge.GBRIDGE_CMD_DEBUG_LOG_OUT] = save_path
+        if elem.startswith("SAVE TIME_TR"):
+            tokens = elem.split()
+            if(len(tokens) > 2):
+                save_path = tokens[2].strip()
+                save_requests[GBridge.GBRIDGE_CMD_DEBUG_TIME_TR] = save_path
+        if elem.startswith("SAVE TIME_AC"):
+            tokens = elem.split()
+            if(len(tokens) > 2):
+                save_path = tokens[2].strip()
+                save_requests[GBridge.GBRIDGE_CMD_DEBUG_TIME_AC] = save_path
 
 def send_func(sender, list_sender, analyzed_list, is_debug_cmd):
     DEBUG_CMD_TRANSFER_FLAG = 0xC0
@@ -73,7 +93,7 @@ def send_func(sender, list_sender, analyzed_list, is_debug_cmd):
         analyzed_list = analyzed_list[num_elems:]
     return analyzed_list
 
-def recv_func(raw_receiver, bridge, bridge_debug, bridge_sockets, send_list, save_path):
+def recv_func(raw_receiver, bridge, bridge_debug, bridge_sockets, send_list, save_requests):
     TRANSFER_FLAGS_MASK = 0xC0
     DEBUG_TRANSFER_FLAG = 0x80
     print_data_in = False
@@ -100,7 +120,7 @@ def recv_func(raw_receiver, bridge, bridge_debug, bridge_sockets, send_list, sav
             curr_cmd = curr_bridge.init_cmd(bytes)
             if(curr_cmd is not None):
                 bytes = bytes[curr_cmd.total_len - curr_cmd.old_len:]
-                curr_cmd.check_save(save_path)
+                curr_cmd.check_save(save_requests)
                 if debug_print:
                     curr_cmd.do_print()
                 if(curr_cmd.response_cmd is not None):
@@ -114,21 +134,22 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
     key_input = KeyboardThread()
     send_list = []
     debug_send_list = []
-    save_path = ""
+    save_requests = dict()
+    requested = None
     bridge = GBridge()
     bridge_debug = GBridge()
     bridge_sockets = GBridgeSocket()
     while(1):
-        save_path = interpret_input_keyboard(key_input, debug_send_list, save_path)
+        interpret_input_keyboard(key_input, debug_send_list, save_requests)
 
         if len(send_list) == 0:
             debug_send_list = send_func(sender, list_sender, debug_send_list, True)
         else:
             send_list = send_func(sender, list_sender, send_list, False)
         
-        sleep(0.05)
+        #sleep(0.05)
 
-        send_list = recv_func(raw_receiver, bridge, bridge_debug, bridge_sockets, send_list, save_path)
+        send_list = recv_func(raw_receiver, bridge, bridge_debug, bridge_sockets, send_list, save_requests)
 
 # Code dependant on this connection method
 def sendByte(byte_to_send, num_bytes):

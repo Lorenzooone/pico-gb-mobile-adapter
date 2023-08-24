@@ -1,5 +1,6 @@
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "hardware/pio.h"
 #include "hardware/irq.h"
@@ -14,8 +15,8 @@
 #define SEC(x) (MSEC(x) * 1000)
 
 //#define FAST_ALIGNMENT
-#define DEBUG_TIMEFRAMES
-#define LOG_DIRECT_SEND_RECV
+//#define DEBUG_TIMEFRAMES
+//#define LOG_DIRECT_SEND_RECV
 
 #ifdef STACKSMASHING
     #include "linkcable_sm.pio.h"
@@ -26,16 +27,18 @@
 #define DEFAULT_SAVED_BITS 8
 
 #ifdef DEBUG_TIMEFRAMES
+typedef uint64_t timeframes_t;
 #define TIMEFRAMES_BUFFER_SIZE 0x400
-uint64_t timeframes_across[TIMEFRAMES_BUFFER_SIZE];
-uint64_t timeframes_transfer[TIMEFRAMES_BUFFER_SIZE];
+timeframes_t timeframes_across[TIMEFRAMES_BUFFER_SIZE];
+timeframes_t timeframes_transfer[TIMEFRAMES_BUFFER_SIZE];
 uint32_t timeframes_buffer_pos = 0;
 #endif
 
 #ifdef LOG_DIRECT_SEND_RECV
 #define LOG_BUFFER_SIZE 0x2000
-uint8_t log_linkcable_buffer_out[LOG_BUFFER_SIZE];
-uint8_t log_linkcable_buffer_in[LOG_BUFFER_SIZE];
+typedef uint8_t log_t;
+log_t log_linkcable_buffer_out[LOG_BUFFER_SIZE];
+log_t log_linkcable_buffer_in[LOG_BUFFER_SIZE];
 uint32_t log_buffer_pos = 0;
 #endif
 
@@ -50,12 +53,12 @@ bool *is_ready = NULL;
 static void TIME_SENSITIVE(linkcable_isr)(void) {
     uint64_t curr_time = time_us_64();
     uint64_t since_last_transfer_time = curr_time - last_transfer_time;
-    timeframes_across[timeframes_buffer_pos] = since_last_transfer_time;
     last_transfer_time = curr_time;
 #if defined(FAST_ALIGNMENT) || defined(DEBUG_TIMEFRAMES)
     uint64_t transfer_time = curr_time - saved_time;
 #endif
 #ifdef DEBUG_TIMEFRAMES
+    timeframes_across[timeframes_buffer_pos] = since_last_transfer_time;
     timeframes_transfer[timeframes_buffer_pos] = transfer_time;
     timeframes_buffer_pos = (timeframes_buffer_pos + 1) % TIMEFRAMES_BUFFER_SIZE;
 #endif
@@ -93,40 +96,29 @@ static void TIME_SENSITIVE(linkcable_time_isr)(void) {
 }
 #endif
 
+static void prepare_debug_buffer(void* buffer, void* data, uint32_t pos, uint32_t num_elems, uint32_t size_elem) {
+    memcpy(buffer, ((uint8_t*)data) + (pos * size_elem), (num_elems - pos) * size_elem);
+    memcpy(((uint8_t*)buffer) + ((num_elems - pos) * size_elem), data, pos * size_elem);
+}
+
 void print_last_linkcable(void) {
 #ifdef LOG_DIRECT_SEND_RECV
-    uint8_t debug_buffer[LOG_BUFFER_SIZE];
+    log_t debug_buffer[LOG_BUFFER_SIZE];
 
-    for(int i = 0; i < (sizeof(log_linkcable_buffer_in) - log_buffer_pos); i++)
-        debug_buffer[i] = log_linkcable_buffer_in[log_buffer_pos + i];
-    for(int i = 0; i < log_buffer_pos; i++)
-        debug_buffer[(sizeof(log_linkcable_buffer_in) - log_buffer_pos) + i] = log_linkcable_buffer_in[i];
-        
-    debug_send(debug_buffer, sizeof(log_linkcable_buffer_in), GBRIDGE_CMD_DEBUG_CHAR);
-    
-    for(int i = 0; i < (sizeof(log_linkcable_buffer_out) - log_buffer_pos); i++)
-        debug_buffer[i] = log_linkcable_buffer_out[log_buffer_pos + i];
-    for(int i = 0; i < log_buffer_pos; i++)
-        debug_buffer[(sizeof(log_linkcable_buffer_out) - log_buffer_pos) + i] = log_linkcable_buffer_out[i];
+    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_in, log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
+    debug_send((uint8_t*)debug_buffer, sizeof(log_linkcable_buffer_in), GBRIDGE_CMD_DEBUG_LOG_IN);
 
-    debug_send(debug_buffer, sizeof(log_linkcable_buffer_out), GBRIDGE_CMD_DEBUG_CHAR);
+    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_out, log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
+    debug_send((uint8_t*)debug_buffer, sizeof(log_linkcable_buffer_out), GBRIDGE_CMD_DEBUG_LOG_OUT);
 #endif
 #ifdef DEBUG_TIMEFRAMES
-    uint64_t debug_buffer_timeframes[TIMEFRAMES_BUFFER_SIZE];
+    timeframes_t debug_buffer_timeframes[TIMEFRAMES_BUFFER_SIZE];
 
-    for(int i = 0; i < (TIMEFRAMES_BUFFER_SIZE - timeframes_buffer_pos); i++)
-        debug_buffer_timeframes[i] = timeframes_transfer[timeframes_buffer_pos + i];
-    for(int i = 0; i < timeframes_buffer_pos; i++)
-        debug_buffer_timeframes[TIMEFRAMES_BUFFER_SIZE - timeframes_buffer_pos + i] = timeframes_transfer[i];
-        
-    debug_send(debug_buffer_timeframes, TIMEFRAMES_BUFFER_SIZE << 3, GBRIDGE_CMD_DEBUG_CHAR);
+    prepare_debug_buffer(debug_buffer_timeframes, timeframes_transfer, timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
+    debug_send((uint8_t*)debug_buffer_timeframes, sizeof(timeframes_transfer), GBRIDGE_CMD_DEBUG_TIME_TR);
 
-    for(int i = 0; i < (TIMEFRAMES_BUFFER_SIZE - timeframes_buffer_pos); i++)
-        debug_buffer_timeframes[i] = timeframes_across[timeframes_buffer_pos + i];
-    for(int i = 0; i < timeframes_buffer_pos; i++)
-        debug_buffer_timeframes[TIMEFRAMES_BUFFER_SIZE - timeframes_buffer_pos + i] = timeframes_across[i];
-        
-    debug_send(debug_buffer_timeframes, TIMEFRAMES_BUFFER_SIZE << 3, GBRIDGE_CMD_DEBUG_CHAR);
+    prepare_debug_buffer(debug_buffer_timeframes, timeframes_across, timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
+    debug_send((uint8_t*)debug_buffer_timeframes, sizeof(timeframes_across), GBRIDGE_CMD_DEBUG_TIME_AC);
 #endif
 }
 

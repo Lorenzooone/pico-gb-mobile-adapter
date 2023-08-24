@@ -177,9 +177,6 @@ void send_x_bytes(const uint8_t* buffer, uint32_t size, bool run_callback, bool 
 
 void debug_send(uint8_t* buffer, uint32_t size, enum gbridge_cmd cmd)
 {
-    if((cmd != GBRIDGE_CMD_DEBUG_LINE) && (cmd != GBRIDGE_CMD_DEBUG_CHAR) && (cmd != GBRIDGE_CMD_DEBUG_CFG))
-        cmd = GBRIDGE_CMD_DEBUG_LINE;
-    uint8_t size_length = 2;
-    _send_x_bytes(buffer, size, cmd, size_length, true, true, false, true);
+    _send_x_bytes(buffer, size, cmd, 2, true, true, false, true);
 }
 
