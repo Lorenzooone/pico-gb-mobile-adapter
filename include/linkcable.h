@@ -19,6 +19,7 @@ void clean_linkcable_fifos(void);
 void linkcable_set_is_32(bool is_32);
 void linkcable_disable(void);
 void linkcable_enable(void);
+bool linkcable_is_enabled(void);
 void linkcable_reset(bool re_enable);
 void linkcable_init(irq_handler_t onReceive);
 void linkcable_pre_split(void);

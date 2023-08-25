@@ -2,6 +2,8 @@
 
 #include "hardware/flash.h"
 
+#define USE_FLASH
+
 #define KEY_CONFIG "CONFIG"
 
 void FormatFlashConfig();

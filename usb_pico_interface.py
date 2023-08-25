@@ -290,7 +290,7 @@ try:
                 try:
                     reattach = True
                     dev.detach_kernel_driver(0)
-                    print("kernel driver detached")
+                    #print("kernel driver detached")
                 except usb.core.USBError as e:
                     sys.exit("Could not detach kernel driver: %s" % str(e))
             else:

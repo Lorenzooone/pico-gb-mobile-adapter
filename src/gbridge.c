@@ -1,25 +1,7 @@
 #include "io_buffer.h"
 #include "pico_mobile_adapter.h"
 #include "gbridge.h"
-
-static uint16_t calc_checksum(const uint8_t* buffer, uint32_t size) {
-    uint16_t checksum = 0;
-    for(int i = 0; i < size; i++)
-        checksum += buffer[i];
-    return checksum;
-}
-
-static void set_checksum(const uint8_t* buffer, uint32_t size, uint8_t* checksum_buffer) {
-    uint16_t checksum = calc_checksum(buffer, size);
-    checksum_buffer[0] = checksum >> 8;
-    checksum_buffer[1] = checksum & 0xFF;
-}
-
-static bool check_checksum(const uint8_t* buffer, uint32_t size, uint8_t* checksum_buffer) {
-    uint16_t checksum_prepared = (checksum_buffer[0] << 8) | checksum_buffer[1];
-    uint16_t checksum = calc_checksum(buffer, size);
-    return checksum == checksum_prepared;
-}
+#include "utils.h"
 
 static bool get_section(uint8_t* buffer, uint32_t size, bool run_callback, bool is_cmd) {
     uint32_t pos = 0;
@@ -42,7 +24,7 @@ static bool _get_x_bytes(uint8_t* buffer, uint32_t size, uint32_t limit, uint32_
     if(!buffer)
         return true;
     uint8_t cmd_data[5];
-    uint8_t checksum_data[2];
+    uint8_t checksum_data[GBRIDGE_CHECKSUM_SIZE];
     if(size_length > 4)
         size_length = 4;
 
@@ -62,7 +44,7 @@ static bool _get_x_bytes(uint8_t* buffer, uint32_t size, uint32_t limit, uint32_
         *read_size = cmd_size;
         if(!get_section(buffer, cmd_size, run_callback, false))
             return false;
-        if(!get_section(checksum_data, 2, run_callback, false))
+        if(!get_section(checksum_data, GBRIDGE_CHECKSUM_SIZE, run_callback, false))
             return false;
         if(check_checksum(buffer, cmd_size, checksum_data))
             try = false;
@@ -114,7 +96,7 @@ static bool send_section(const uint8_t* buffer, uint32_t size, uint32_t* pos, bo
 }
 
 static void _send_x_bytes(const uint8_t* buffer, uint32_t size, uint8_t cmd, uint8_t size_length, bool run_callback, bool send_checksum, bool expect_recieve, bool is_debug) {
-    uint8_t checksum_buffer[2];
+    uint8_t checksum_buffer[GBRIDGE_CHECKSUM_SIZE];
     uint8_t command_buffer[5];
     command_buffer[0] = cmd;
     if(size_length > 4)
@@ -140,8 +122,8 @@ static void _send_x_bytes(const uint8_t* buffer, uint32_t size, uint8_t cmd, uin
             if(completed_cmd && (!completed_data))
                 completed_data = send_section(buffer, size, &pos, is_debug);
             if(completed_data && (!completed_checksum))
-                completed_checksum = send_section(checksum_buffer, 2, &pos, is_debug);
-            if(completed_checksum)
+                completed_checksum = send_section(checksum_buffer, GBRIDGE_CHECKSUM_SIZE, &pos, is_debug);
+            if(completed_data && completed_checksum)
                 completed = true;
             if(run_callback)
                 call_upkeep_callback();
@@ -177,6 +159,11 @@ void send_x_bytes(const uint8_t* buffer, uint32_t size, bool run_callback, bool 
 
 void debug_send(uint8_t* buffer, uint32_t size, enum gbridge_cmd cmd)
 {
-    _send_x_bytes(buffer, size, cmd, 2, true, true, false, true);
+    _send_x_bytes(buffer, size, cmd, 2, false, true, false, true);
+}
+
+void debug_send_ack(void)
+{
+    _send_x_bytes(NULL, 0, GBRIDGE_CMD_DEBUG_ACK, 0, false, false, false, true);
 }
 

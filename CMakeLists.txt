@@ -12,7 +12,7 @@ pico_sdk_init()
 set(PICO_TINYUSB_PATH ${PICO_SDK_PATH}/lib/tinyusb)
 set(LIBMOBILE_PATH libmobile)
 
-add_executable(${PROJECT_NAME} src/pico_gb_printer.c src/usb_descriptors.c src/linkcable.c src/pico_mobile_adapter.c src/socket_impl.c src/gbridge.c src/io_buffer.c src/flash_eeprom.c src/bridge_debug_commands.c)
+add_executable(${PROJECT_NAME} src/pico_gb_printer.c src/usb_descriptors.c src/linkcable.c src/pico_mobile_adapter.c src/socket_impl.c src/gbridge.c src/io_buffer.c src/flash_eeprom.c src/bridge_debug_commands.c src/utils.c)
 add_subdirectory(${LIBMOBILE_PATH})
 
 pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/linkcable.pio)

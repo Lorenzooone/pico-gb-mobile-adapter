@@ -40,9 +40,8 @@ enum  {
 
 //#define OVERCLOCK
 //#define USE_CORE_1_AS_WELL
-// Not currently used because Flash-saving handling
-// would need special code to stop temporarily Core 1.
-// Can be used with PICO_COPY_TO_RAM to have a fixed high speed for irqs.
+// Can be used with PICO_COPY_TO_RAM to have a fixed high speed for irqs,
+// not interrupted by core 0 (USB) irqs/cache evictions.
 // Though, for this project, it's not needed...
 
 #define DEBUG_TRANSFER_FLAG 0x80
@@ -68,21 +67,28 @@ bool speed_240_MHz = false;
 
 //------------- prototypes -------------//
 
-void handle_input_data(void);
+void handle_input_data(bool is_in_mobile_loop);
 void led_blinking_task(void);
-void cdc_task(void);
-void webserial_task(void);
-void loop_upkeep_functions(void);
+void cdc_task(bool is_in_mobile_loop);
+void webserial_task(bool is_in_mobile_loop);
+void loop_upkeep_functions(bool is_in_mobile_loop);
 
 void TIME_SENSITIVE(core_1_main)(void) {
     linkcable_init(link_cable_ISR);
-    while(1);
+    while(1) {
+        enable_ack();
+    }
 }
 
 // main loop
 int main(void) {
     board_init();
     linkcable_pre_split();
+    bool is_same_core = true;
+#ifdef USE_CORE_1_AS_WELL
+    is_same_core = false;
+#endif
+    init_disable_ack(is_same_core);
 #ifdef USE_CORE_1_AS_WELL
     multicore_launch_core1(&core_1_main);
 #endif
@@ -100,17 +106,17 @@ int main(void) {
     pico_mobile_init(loop_upkeep_functions);
 
     while (true) {
-        pico_mobile_loop();
-        loop_upkeep_functions();
+        pico_mobile_loop(is_same_core);
+        loop_upkeep_functions(false);
     }
 
     return 0;
 }
 
-void loop_upkeep_functions(void) {
+void loop_upkeep_functions(bool is_in_mobile_loop) {
     tud_task(); // tinyusb device task
-    cdc_task();
-    webserial_task();
+    cdc_task(is_in_mobile_loop);
+    webserial_task(is_in_mobile_loop);
     led_blinking_task();
 }
 
@@ -236,18 +242,20 @@ bool tud_vendor_control_complete_cb(uint8_t rhport, tusb_control_request_t const
     return true;
 }
 
-void handle_input_data(void) {
+void handle_input_data(bool is_in_mobile_loop) {
     uint8_t buf_in[MAX_TRANSFER_BYTES*2];
     uint32_t count = tud_vendor_read((uint8_t*)buf_in, sizeof(buf_in));
     for(int i = count; i < (MAX_TRANSFER_BYTES*2); i++)
         buf_in[i] = 0;
-    uint32_t reported_num = buf_in[0];
-    if((reported_num & 0xC0) == 0xC0)
-        interpret_debug_command(buf_in + 1, reported_num & 0x3F);
-    else if(count > 1) {
-        if(reported_num > (count - 1))
-            reported_num = count - 1;
-        set_data_in(buf_in + 1, reported_num);
+    if(count > 1) {
+        uint32_t reported_num = buf_in[0];
+        if((reported_num & 0xC0) == 0xC0)
+            interpret_debug_command(buf_in + 1, reported_num & 0x3F, count - 1, is_in_mobile_loop);
+        else {
+            if(reported_num > (count - 1))
+                reported_num = count - 1;
+            set_data_in(buf_in + 1, reported_num);
+        }
     }
     uint8_t buf_out[MAX_TRANSFER_BYTES * 2];
     for(int i = 0; i < (MAX_TRANSFER_BYTES*2); i++)
@@ -272,23 +280,23 @@ void handle_input_data(void) {
     echo_all((uint8_t*)buf_out, MAX_TRANSFER_BYTES);
 }
 
-void webserial_task(void)
+void webserial_task(bool is_in_mobile_loop)
 {
     if ( web_serial_connected )
         if ( tud_vendor_available() )
-            handle_input_data();
+            handle_input_data(is_in_mobile_loop);
 }
 
 
 //--------------------------------------------------------------------+
 // USB CDC
 //--------------------------------------------------------------------+
-void cdc_task(void)
+void cdc_task(bool is_in_mobile_loop)
 {
     if ( tud_cdc_connected() )
     // connected and there are data available
         if ( tud_cdc_available() )
-            handle_input_data();
+            handle_input_data(is_in_mobile_loop);
 }
 
 // Invoked when cdc when line state changed e.g connected/disconnected

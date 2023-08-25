@@ -12,20 +12,18 @@
 #include "linkcable.h"
 #include "flash_eeprom.h"
 #include "useful_qualifiers.h"
+#include "utils.h"
 
-#define USE_FLASH
 #define DEBUG_MAX_SIZE 0x200
-#define IDLE_COMMAND 0xD2
-//#define SET_DEFAULT_DNS
 
 static void mobile_validate_relay(void);
 static void impl_serial_disable(void *user);
 static void impl_serial_enable(void *user, bool mode_32bit);
 static bool impl_config_read(void *user, void *dest, const uintptr_t offset, const size_t size);
-static bool impl_config_write(void *user, const void *src, const uintptr_t offset, const size_t size);
 static void impl_time_latch(void *user, unsigned timer);
 static bool impl_time_check_ms(void *user, unsigned timer, unsigned ms);
 static void impl_update_number(void *user, enum mobile_number type, const char *number);
+static void wait_for_ack(void);
 
 #define DNS_DEFAULT_IP 127, 0, 0, 1
 #define DNS_DEFAULT_PORT 53
@@ -34,17 +32,17 @@ const uint16_t default_dns_port = DNS_DEFAULT_PORT;
 
 //Control Flash Write
 bool haveConfigToWrite = false;
-uint8_t currentTicks = 0;
+static uint64_t time_last_config_edit = 0;
 
 bool isLinkCable32 = false;
-bool link_cable_data_received = false;
 
 struct mobile_user *mobile;
 upkeep_callback saved_callback = NULL;
+bool *ack_disable = NULL;
 
 void call_upkeep_callback(void) {
     if(saved_callback)
-        saved_callback();
+        saved_callback(true);
 }
 
 void TIME_SENSITIVE(link_cable_ISR)(void) {
@@ -56,6 +54,22 @@ void TIME_SENSITIVE(link_cable_ISR)(void) {
     }
     clean_linkcable_fifos();
     linkcable_send(data);
+}
+
+void init_disable_ack(bool is_same_core) {
+    if(!is_same_core)
+        ack_disable = malloc(1);
+}
+
+void TIME_SENSITIVE(enable_ack)(void) {
+    *ack_disable = true;
+}
+
+static void wait_for_ack(void) {
+    if(ack_disable != NULL) {
+        *ack_disable = false;
+        while(!(*ack_disable));
+    }
 }
 
 void pico_mobile_init(upkeep_callback callback) {
@@ -87,15 +101,6 @@ void pico_mobile_init(upkeep_callback callback) {
     mobile_def_update_number(mobile->adapter, impl_update_number);
 
     mobile_config_load(mobile->adapter);
-    
-#ifdef SET_DEFAULT_DNS
-    struct mobile_addr default_dns;
-    default_dns._addr4.type = MOBILE_ADDRTYPE_IPV4;
-    default_dns._addr4.port = default_dns_port;
-    for(int i = 0; i < 4; i++)
-        default_dns._addr4.host[i] = default_dns_ip[i];
-    mobile_config_set_dns(mobile->adapter, &default_dns, &default_dns);
-#endif
 
     mobile->action = MOBILE_ACTION_NONE;
     mobile->number_user[0] = '\0';
@@ -116,7 +121,7 @@ void irqs_enable(void) {
     linkcable_enable();
 }
 
-void pico_mobile_loop(void) {
+void pico_mobile_loop(bool is_same_core) {
     // Mobile Adapter Main Loop
     mobile_loop(mobile->adapter);
 
@@ -124,10 +129,15 @@ void pico_mobile_loop(void) {
     // Check if there is any new config to write on Flash
     if(haveConfigToWrite){
         bool can_disable_irqs = can_disable_linkcable_irq();
-        if(can_disable_irqs) {
+        uint64_t curr_time_last_config_edit = time_last_config_edit;
+        if(((time_us_64() - curr_time_last_config_edit) > SEC(1)) && can_disable_irqs) {
+            bool prev_state = linkcable_is_enabled();
+            if((!is_same_core) && prev_state)
+                linkcable_disable();
             SaveFlashConfig(mobile->config_eeprom, EEPROM_SIZE);
             haveConfigToWrite = false;
-            currentTicks = 0;
+            if((!is_same_core) && prev_state)
+                linkcable_enable();
         }
     }
 #endif
@@ -156,7 +166,8 @@ void impl_debug_log(void *user, const char *line){
 
 static void impl_serial_disable(void *user) {
     struct mobile_user *mobile = (struct mobile_user *)user;
-    linkcable_disable(); 
+    linkcable_disable();
+    wait_for_ack();
     print_last_linkcable();
 }
 
@@ -176,7 +187,7 @@ static bool impl_config_read(void *user, void *dest, const uintptr_t offset, con
     return true;
 }
 
-static bool impl_config_write(void *user, const void *src, const uintptr_t offset, const size_t size) {
+bool impl_config_write(void *user, const void *src, const uintptr_t offset, const size_t size) {
     struct mobile_user *mobile = (struct mobile_user *)user;
     const uint8_t* src_8 = (const uint8_t *)src;
     for(int i = 0; i < size; i++){
@@ -186,6 +197,8 @@ static bool impl_config_write(void *user, const void *src, const uintptr_t offse
 #endif
         mobile->config_eeprom[offset + i] = src_8[i];
     }
+    if(haveConfigToWrite)
+        time_last_config_edit = time_us_64();
     return true;
 }
 

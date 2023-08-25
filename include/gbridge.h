@@ -8,6 +8,8 @@
 
 #define GBRIDGE_MAX_DATA_SIZE 0x80
 
+#define GBRIDGE_CHECKSUM_SIZE 2
+
 // Flag set when replying to a message
 #define GBRIDGE_CMD_REPLY_F 0x80
 
@@ -18,15 +20,21 @@ enum gbridge_cmd {
     GBRIDGE_CMD_PING = 0x01,
     GBRIDGE_CMD_DEBUG_LINE = 0x02,
     GBRIDGE_CMD_DEBUG_CHAR = 0x03,
-    GBRIDGE_CMD_DEBUG_CFG = 0x05,
-    GBRIDGE_CMD_DEBUG_LOG_IN = 0x06,
-    GBRIDGE_CMD_DEBUG_LOG_OUT = 0x07,
-    GBRIDGE_CMD_DEBUG_TIME_TR = 0x08,
-    GBRIDGE_CMD_DEBUG_TIME_AC = 0x09,
+    GBRIDGE_CMD_DEBUG_CFG = 0x04,
+    GBRIDGE_CMD_DEBUG_INFO_NAME = 0x05,
+    GBRIDGE_CMD_DEBUG_INFO_OTHER = 0x06,
+    GBRIDGE_CMD_DEBUG_ACK = 0x07,
     GBRIDGE_CMD_DATA = 0x0A,
     GBRIDGE_CMD_DATA_FAIL = 0x0B,  // Checksum failure, retry
     GBRIDGE_CMD_STREAM = 0x0C,
     GBRIDGE_CMD_STREAM_FAIL = 0x0D,  // Checksum failure, retry
+
+    // START of LOG Commands, not real, for debug
+    GBRIDGE_CMD_DEBUG_LOG_IN = 0x15,
+    GBRIDGE_CMD_DEBUG_LOG_OUT = 0x16,
+    GBRIDGE_CMD_DEBUG_TIME_TR = 0x17,
+    GBRIDGE_CMD_DEBUG_TIME_AC = 0x18,
+    // END of LOG Commands, not real, for debug
 
     // from PC
     GBRIDGE_CMD_PROG_STOP = 0x41,
@@ -56,5 +64,6 @@ enum gbma_prot_cmd {
 bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool expected_data, uint32_t limit, uint32_t* read_size);
 void send_x_bytes(const uint8_t* buffer, uint32_t size, bool run_callback, bool send_checksum, bool is_data);
 void debug_send(uint8_t* buffer, uint32_t size, enum gbridge_cmd cmd);
+void debug_send_ack(void);
 
 #endif /* _GBRIDGE_H_ */

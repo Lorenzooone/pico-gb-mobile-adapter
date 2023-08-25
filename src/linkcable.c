@@ -9,10 +9,7 @@
 #include "linkcable.h"
 #include "gbridge.h"
 #include "useful_qualifiers.h"
-
-#define MUSEC(x) (x)
-#define MSEC(x) (MUSEC(x) * 1000)
-#define SEC(x) (MSEC(x) * 1000)
+#include "utils.h"
 
 //#define FAST_ALIGNMENT
 //#define DEBUG_TIMEFRAMES
@@ -81,6 +78,10 @@ static void TIME_SENSITIVE(linkcable_isr)(void) {
     linkcable_activate(LINKCABLE_PIO, LINKCABLE_SM);
 #endif
 #endif
+}
+
+bool linkcable_is_enabled(void) {
+    return is_enabled;
 }
 
 bool can_disable_linkcable_irq(void) {
