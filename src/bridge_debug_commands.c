@@ -44,7 +44,6 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
 
     struct mobile_user* mobile = get_mobile_user();
     struct mobile_addr target_addr;
-    struct mobile_addr other_addr;
     uint8_t data_out[MAX_NEEDED_DEBUG_SIZE];
     unsigned data_out_len;
     unsigned addrsize;
@@ -146,12 +145,11 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             if(size < 1)
                 return;
 
-            mobile_config_get_dns(mobile->adapter, &target_addr, &other_addr);
             addrsize = address_read(&target_addr, data, size);
             if(!addrsize)
                 return;
 
-            mobile_config_set_dns(mobile->adapter, &target_addr, &other_addr);
+            mobile_config_set_dns(mobile->adapter, &target_addr, MOBILE_DNS1);
             debug_send_ack();
 
             break;
@@ -159,12 +157,11 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             if(size < 1)
                 return;
 
-            mobile_config_get_dns(mobile->adapter, &other_addr, &target_addr);
             addrsize = address_read(&target_addr, data, size);
             if(!addrsize)
                 return;
 
-            mobile_config_set_dns(mobile->adapter, &other_addr, &target_addr);
+            mobile_config_set_dns(mobile->adapter, &target_addr, MOBILE_DNS2);
             debug_send_ack();
 
             break;
