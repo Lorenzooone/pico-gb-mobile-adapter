@@ -5,7 +5,6 @@
 #include "gbridge.h"
 #include "pico_mobile_adapter.h"
 #include "bridge_debug_commands.h"
-#include "flash_eeprom.h"
 #include "utils.h"
 
 #define MAX_DEBUG_COMMAND_SIZE 0x3F
@@ -24,7 +23,8 @@ enum bridge_debug_command_id {
     SEND_NAME_INFO_CMD = 9,
     SEND_OTHER_INFO_CMD = 10,
     STOP_CMD = 11,
-    START_CMD = 12
+    START_CMD = 12,
+    STATUS_CMD = 13
 };
 
 void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size, bool is_in_mobile_loop) {
@@ -47,6 +47,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
     uint8_t data_out[MAX_NEEDED_DEBUG_SIZE];
     unsigned data_out_len;
     unsigned addrsize;
+    uint8_t flag;
 
     uint8_t cmd = src[0];
     const uint8_t* data = src + DEBUG_COMMAND_ID_SIZE;
@@ -63,8 +64,20 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             ReadFlashConfig(data_out, EEPROM_SIZE);
             debug_send(data_out, EEPROM_SIZE, GBRIDGE_CMD_DEBUG_CFG);
 #else
+            if(mobile->adapter->global.start)
+                return;
             debug_send(mobile->config_eeprom, EEPROM_SIZE, GBRIDGE_CMD_DEBUG_CFG);
 #endif
+            break;
+        case STATUS_CMD:
+            flag = 0;
+            if(mobile->adapter->global.start)
+                flag |= 1;
+#ifdef USE_FLASH
+            flag |= 2;
+#endif
+
+            debug_send(&flag, 1, GBRIDGE_CMD_DEBUG_STATUS);
             break;
         case SEND_NAME_INFO_CMD:
             data_out_len = snprintf(data_out, MAX_NEEDED_DEBUG_SIZE, IMPLEMENTATION_NAME);
