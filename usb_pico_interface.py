@@ -10,6 +10,14 @@ import os
 
 import threading
 
+dev = None
+epIn = None
+epOut = None
+max_usb_timeout = 5
+
+def kill_function():
+    os.kill(os.getpid(), signal.SIGINT)
+
 class KeyboardThread(threading.Thread):
 
     def __init__(self):
@@ -99,14 +107,6 @@ class SocketThread(threading.Thread):
         self.lock_out.acquire()
 
         return self.out_data
-
-dev = None
-epIn = None
-epOut = None
-max_usb_timeout = 5
-
-def kill_function():
-    os.kill(os.getpid(), signal.SIGINT)
     
 def interpret_input_keyboard(key_input, debug_send_list, save_requests):
     SEND_EEPROM_CMD = 1
@@ -163,43 +163,6 @@ def prepare_out_func(analyzed_list, is_debug_cmd):
         if print_data_out:
             print("OUT: " + str(out_buf[1:]))
     return out_buf, num_elems
-
-def recv_func(raw_receiver, bridge, bridge_debug, bridge_sockets, send_list, save_requests):
-    TRANSFER_FLAGS_MASK = 0xC0
-    DEBUG_TRANSFER_FLAG = 0x80
-    print_data_in = False
-    debug_print = True
-    
-    read_data = raw_receiver(0x40)
-    num_bytes = int.from_bytes(read_data[:1], byteorder='little')
-
-    curr_bridge = bridge
-    is_debug = (num_bytes & TRANSFER_FLAGS_MASK) == DEBUG_TRANSFER_FLAG
-    if is_debug:
-        curr_bridge = bridge_debug
-
-    num_bytes &= 0x3F
-    bytes = []
-    if (num_bytes > 0) and (num_bytes <= (len(read_data) - 1)):
-        for i in range(num_bytes):
-            bytes += [int.from_bytes(read_data[(i + 1):(i + 2)], byteorder='little')]
-
-        curr_cmd = True
-        if print_data_in and (not is_debug):
-            print("IN: " + str(bytes))
-        while curr_cmd is not None:
-            curr_cmd = curr_bridge.init_cmd(bytes)
-            if(curr_cmd is not None):
-                bytes = bytes[curr_cmd.total_len - curr_cmd.old_len:]
-                curr_cmd.check_save(save_requests)
-                if debug_print:
-                    curr_cmd.do_print()
-                if(curr_cmd.response_cmd is not None):
-                    send_list += [curr_cmd.response_cmd]
-                    if(curr_cmd.process(bridge_sockets)):
-                        send_list += GBridge.prepare_cmd(curr_cmd.result_to_send(), False)
-                        send_list += GBridge.prepare_cmd(curr_cmd.get_if_pending(), True)
-    return send_list
 
 def transfer_func(sender, receiver, list_sender, raw_receiver):
     key_input = KeyboardThread()
