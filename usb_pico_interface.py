@@ -38,6 +38,10 @@ class SocketThread(threading.Thread):
         self.bridge = GBridge()
         self.bridge_debug = GBridge()
         self.bridge_sockets = GBridgeSocket()
+        self.lock_in = threading.Lock()
+        self.lock_out = threading.Lock()
+        self.lock_in.acquire()
+        self.lock_out.acquire()
         self.start()
 
     def run(self):
@@ -47,8 +51,8 @@ class SocketThread(threading.Thread):
         debug_print = True
 
         while True:
-            while not self.start_processing:
-                sleep(0.01)
+            self.lock_in.acquire()
+
             send_list = []
             read_data = self.data
             save_requests = self.save_requests
@@ -82,19 +86,18 @@ class SocketThread(threading.Thread):
                                 send_list += GBridge.prepare_cmd(curr_cmd.get_if_pending(), True)
             
             self.out_data = send_list
-            self.start_processing = False
-            self.done_processing = True
+
+            self.lock_out.release()
 
     def set_processing(self, data, save_requests):
         self.data = data
         self.save_requests = save_requests
-        self.done_processing = False
-        self.start_processing = True
-            
+
+        self.lock_in.release()
 
     def get_processed(self):
-        while not self.done_processing:
-            sleep(0.01)
+        self.lock_out.acquire()
+
         return self.out_data
 
 dev = None
