@@ -16,7 +16,7 @@ void TIME_SENSITIVE(ack_sync_req)(sync_t* ack) {
 }
 
 bool TIME_SENSITIVE(is_sync_req)(sync_t* ack) {
-    return *ack;
+    return !(*ack);
 }
 
 bool TIME_SENSITIVE(wait_for_sync)(sync_t* ack) {
