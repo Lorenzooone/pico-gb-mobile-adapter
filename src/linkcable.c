@@ -21,23 +21,20 @@
     #include "linkcable.pio.h"
 #endif
 
+#define LOG_BUFFER_SIZE 0x2000
+#define TIMEFRAMES_BUFFER_SIZE 0x1000
+
 #define DEFAULT_SAVED_BITS 8
 
-#ifdef DEBUG_TIMEFRAMES
-#define TIMEFRAMES_BUFFER_SIZE 0x1000
 typedef uint16_t timeframes_t;
-timeframes_t timeframes_across[TIMEFRAMES_BUFFER_SIZE];
-timeframes_t timeframes_transfer[TIMEFRAMES_BUFFER_SIZE];
-uint32_t timeframes_buffer_pos = 0;
-#endif
+timeframes_t *timeframes_across = NULL;
+timeframes_t *timeframes_transfer = NULL;
+uint32_t *timeframes_buffer_pos = NULL;
 
-#ifdef LOG_DIRECT_SEND_RECV
-#define LOG_BUFFER_SIZE 0x2000
 typedef uint8_t log_t;
-log_t log_linkcable_buffer_out[LOG_BUFFER_SIZE];
-log_t log_linkcable_buffer_in[LOG_BUFFER_SIZE];
-uint32_t log_buffer_pos = 0;
-#endif
+log_t *log_linkcable_buffer_out = NULL;
+log_t *log_linkcable_buffer_in = NULL;
+uint32_t *log_buffer_pos = NULL;
 
 static irq_handler_t linkcable_irq_handler = NULL;
 static uint32_t linkcable_pio_initial_pc = 0;
@@ -55,13 +52,13 @@ static void TIME_SENSITIVE(linkcable_isr)(void) {
     uint64_t transfer_time = curr_time - saved_time;
 #endif
 #ifdef DEBUG_TIMEFRAMES
-    timeframes_across[timeframes_buffer_pos] = since_last_transfer_time;
+    timeframes_across[*timeframes_buffer_pos] = since_last_transfer_time;
     if(since_last_transfer_time > ((timeframes_t)(0xFFFFFFFFFFFFFFFF)))
-        timeframes_across[timeframes_buffer_pos] = ((timeframes_t)(0xFFFFFFFFFFFFFFFF));
-    timeframes_transfer[timeframes_buffer_pos] = transfer_time;
+        timeframes_across[*timeframes_buffer_pos] = ((timeframes_t)(0xFFFFFFFFFFFFFFFF));
+    timeframes_transfer[*timeframes_buffer_pos] = transfer_time;
     if(transfer_time > ((timeframes_t)(0xFFFFFFFFFFFFFFFF)))
-        timeframes_transfer[timeframes_buffer_pos] = ((timeframes_t)(0xFFFFFFFFFFFFFFFF));
-    timeframes_buffer_pos = (timeframes_buffer_pos + 1) % TIMEFRAMES_BUFFER_SIZE;
+        timeframes_transfer[*timeframes_buffer_pos] = ((timeframes_t)(0xFFFFFFFFFFFFFFFF));
+    *timeframes_buffer_pos = ((*timeframes_buffer_pos) + 1) % TIMEFRAMES_BUFFER_SIZE;
 #endif
 #ifdef FAST_ALIGNMENT
     uint64_t dest_time = curr_time + ((transfer_time + saved_bits - 1) / saved_bits);
@@ -110,35 +107,35 @@ void print_last_linkcable(void) {
 #ifdef LOG_DIRECT_SEND_RECV
     log_t debug_buffer[LOG_BUFFER_SIZE];
 
-    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_in, log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
-    debug_send((uint8_t*)debug_buffer, sizeof(log_linkcable_buffer_in), GBRIDGE_CMD_DEBUG_LOG_IN);
+    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_in, *log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
+    debug_send((uint8_t*)debug_buffer, sizeof(debug_buffer), GBRIDGE_CMD_DEBUG_LOG_IN);
 
-    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_out, log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
-    debug_send((uint8_t*)debug_buffer, sizeof(log_linkcable_buffer_out), GBRIDGE_CMD_DEBUG_LOG_OUT);
+    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_out, *log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
+    debug_send((uint8_t*)debug_buffer, sizeof(debug_buffer), GBRIDGE_CMD_DEBUG_LOG_OUT);
 #endif
 #ifdef DEBUG_TIMEFRAMES
     timeframes_t debug_buffer_timeframes[TIMEFRAMES_BUFFER_SIZE];
 
-    prepare_debug_buffer(debug_buffer_timeframes, timeframes_transfer, timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
-    debug_send((uint8_t*)debug_buffer_timeframes, sizeof(timeframes_transfer), GBRIDGE_CMD_DEBUG_TIME_TR);
+    prepare_debug_buffer(debug_buffer_timeframes, timeframes_transfer, *timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
+    debug_send((uint8_t*)debug_buffer_timeframes, sizeof(debug_buffer_timeframes), GBRIDGE_CMD_DEBUG_TIME_TR);
 
-    prepare_debug_buffer(debug_buffer_timeframes, timeframes_across, timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
-    debug_send((uint8_t*)debug_buffer_timeframes, sizeof(timeframes_across), GBRIDGE_CMD_DEBUG_TIME_AC);
+    prepare_debug_buffer(debug_buffer_timeframes, timeframes_across, *timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
+    debug_send((uint8_t*)debug_buffer_timeframes, sizeof(debug_buffer_timeframes), GBRIDGE_CMD_DEBUG_TIME_AC);
 #endif
 }
 
 uint32_t TIME_SENSITIVE(linkcable_receive)(void) {
     uint32_t retval = (pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM) & ((1 << saved_bits) - 1));
 #ifdef LOG_DIRECT_SEND_RECV
-    log_linkcable_buffer_in[log_buffer_pos] = retval;
+    log_linkcable_buffer_in[*log_buffer_pos] = retval;
 #endif
     return retval;
 }
 
 void TIME_SENSITIVE(linkcable_send)(uint32_t data) {
 #ifdef LOG_DIRECT_SEND_RECV
-    log_linkcable_buffer_out[log_buffer_pos] = data;
-    log_buffer_pos = (log_buffer_pos + 1) % LOG_BUFFER_SIZE;
+    log_linkcable_buffer_out[*log_buffer_pos] = data;
+    *log_buffer_pos = ((*log_buffer_pos) + 1) % LOG_BUFFER_SIZE;
 #endif
     uint32_t sendval = (data << (32 - saved_bits));
     pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, sendval);
@@ -182,8 +179,20 @@ void linkcable_set_is_32(bool is_32) {
 void linkcable_pre_split(void) {
     is_linkcable_ready = malloc(sizeof(bool));
     last_transfer_time = malloc(sizeof(uint64_t));
+    timeframes_buffer_pos = malloc(sizeof(uint32_t));
+    log_buffer_pos = malloc(sizeof(uint32_t));
+    *log_buffer_pos = 0;
+    *timeframes_buffer_pos = 0;
     *last_transfer_time = 0;
     *is_linkcable_ready = false;
+#ifdef DEBUG_TIMEFRAMES
+    timeframes_across = malloc(TIMEFRAMES_BUFFER_SIZE * sizeof(timeframes_t));
+    timeframes_transfer = malloc(TIMEFRAMES_BUFFER_SIZE * sizeof(timeframes_t));
+#endif
+#ifdef LOG_DIRECT_SEND_RECV
+    log_linkcable_buffer_out = malloc(LOG_BUFFER_SIZE * sizeof(log_t));
+    log_linkcable_buffer_in = malloc(LOG_BUFFER_SIZE * sizeof(log_t));
+#endif
 }
 
 void linkcable_init(irq_handler_t onDataReceive) {

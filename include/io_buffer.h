@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+//#define BIG_BUFFER
 #define DO_SEND_DEBUG
 
 uint8_t get_data_out(bool* success);

@@ -76,7 +76,6 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
 #ifdef USE_FLASH
             flag |= 2;
 #endif
-
             debug_send(&flag, 1, GBRIDGE_CMD_DEBUG_STATUS);
             break;
         case SEND_NAME_INFO_CMD:

@@ -3,8 +3,6 @@
 #define OUT_BUFFER_SIZE 0x100
 #define IN_BUFFER_SIZE 0x100
 
-//#define BIG_BUFFER
-
 #ifdef BIG_BUFFER
 #define DEBUG_OUT_BUFFER_SIZE 0x9000
 #else

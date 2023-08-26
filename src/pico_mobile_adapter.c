@@ -38,7 +38,7 @@ bool isLinkCable32 = false;
 
 struct mobile_user *mobile;
 upkeep_callback saved_callback = NULL;
-bool *ack_disable = NULL;
+volatile bool *ack_disable = NULL;
 
 void call_upkeep_callback(void) {
     if(saved_callback)
