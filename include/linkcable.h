@@ -22,7 +22,6 @@ void linkcable_enable(void);
 bool linkcable_is_enabled(void);
 void linkcable_reset(bool re_enable);
 void linkcable_init(irq_handler_t onReceive);
-void init_linkcable_pre_split(void);
 bool can_disable_linkcable_irq(void);
 void print_last_linkcable(void);
 

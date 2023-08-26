@@ -27,7 +27,7 @@ struct mobile_user {
 };
 
 void enable_ack(void);
-void init_pico_mobile_pre_split(bool is_same_core);
+void set_core_shared(bool is_same_core);
 
 struct mobile_user* get_mobile_user(void);
 void call_upkeep_callback(void);

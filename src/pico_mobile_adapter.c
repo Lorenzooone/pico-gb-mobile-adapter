@@ -36,8 +36,9 @@ static uint64_t time_last_config_edit = 0;
 
 struct mobile_user *mobile = NULL;
 upkeep_callback saved_callback = NULL;
-volatile bool *ack_disable = NULL;
-bool *isLinkCable32 = NULL;
+volatile bool ack_disable = false;
+bool shared_same_core = true;
+bool isLinkCable32 = false;
 
 void call_upkeep_callback(void) {
     if(saved_callback)
@@ -46,7 +47,7 @@ void call_upkeep_callback(void) {
 
 void TIME_SENSITIVE(link_cable_ISR)(void) {
     uint32_t data = linkcable_receive();
-    if(*isLinkCable32){
+    if(isLinkCable32){
         data = mobile_transfer_32bit(mobile->adapter, data);
     }else{
         data = mobile_transfer(mobile->adapter, data);
@@ -55,24 +56,18 @@ void TIME_SENSITIVE(link_cable_ISR)(void) {
     linkcable_send(data);
 }
 
-void init_pico_mobile_pre_split(bool is_same_core) {
-    // Annoyingly, data accessed by both cores has to be malloced,
-    // or it will hang... Apparently... :/
-    // Luckily, mobile was already malloced.
-    if(!is_same_core)
-        ack_disable = malloc(1);
-    isLinkCable32 = malloc(1);
-    *isLinkCable32 = false;
+void set_core_shared(bool is_same_core) {
+    shared_same_core = is_same_core;
 }
 
 void TIME_SENSITIVE(enable_ack)(void) {
-    *ack_disable = true;
+    ack_disable = true;
 }
 
 static void wait_for_ack(void) {
-    if(ack_disable != NULL) {
-        *ack_disable = false;
-        while(!(*ack_disable));
+    if(!shared_same_core) {
+        ack_disable = false;
+        while(!ack_disable);
     }
 }
 
@@ -178,8 +173,8 @@ static void impl_serial_disable(void *user) {
 static void impl_serial_enable(void *user, bool mode_32bit) {
     struct mobile_user *mobile = (struct mobile_user *)user;
 
-    *isLinkCable32 = mode_32bit;
-    linkcable_set_is_32(*isLinkCable32);
+    isLinkCable32 = mode_32bit;
+    linkcable_set_is_32(isLinkCable32);
     linkcable_enable();
 }
 

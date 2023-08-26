@@ -27,41 +27,40 @@
 #define DEFAULT_SAVED_BITS 8
 
 typedef uint16_t timeframes_t;
-timeframes_t *timeframes_across = NULL;
-timeframes_t *timeframes_transfer = NULL;
-uint32_t *timeframes_buffer_pos = NULL;
-
 typedef uint8_t log_t;
-log_t *log_linkcable_buffer_out = NULL;
-log_t *log_linkcable_buffer_in = NULL;
-uint32_t *log_buffer_pos = NULL;
+
+static void debug_store_timeframe(timeframes_t *timeframes, uint32_t buffer_pos, uint64_t value);
+
+#ifdef DEBUG_TIMEFRAMES
+timeframes_t timeframes_across[TIMEFRAMES_BUFFER_SIZE];
+timeframes_t timeframes_transfer[TIMEFRAMES_BUFFER_SIZE];
+uint32_t timeframes_buffer_pos = 0;
+#endif
+
+#ifdef LOG_DIRECT_SEND_RECV
+log_t log_linkcable_buffer_out[LOG_BUFFER_SIZE];
+log_t log_linkcable_buffer_in[LOG_BUFFER_SIZE];
+uint32_t log_buffer_pos = 0;
+#endif
 
 static irq_handler_t linkcable_irq_handler = NULL;
 static uint32_t linkcable_pio_initial_pc = 0;
-uint8_t *saved_bits = NULL;
+uint8_t saved_bits = DEFAULT_SAVED_BITS;
 static uint64_t saved_time = 0;
 bool is_enabled = false;
-bool *is_linkcable_ready = NULL;
-uint64_t *last_transfer_time = NULL;
+bool is_linkcable_ready = false;
+uint64_t last_transfer_time = 0;
 
 static void TIME_SENSITIVE(linkcable_isr)(void) {
     uint64_t curr_time = time_us_64();
-    uint64_t since_last_transfer_time = curr_time - (*last_transfer_time);
-    *last_transfer_time = curr_time;
-#if defined(FAST_ALIGNMENT) || defined(DEBUG_TIMEFRAMES)
-    uint64_t transfer_time = curr_time - saved_time;
-#endif
+    last_transfer_time = curr_time;
 #ifdef DEBUG_TIMEFRAMES
-    timeframes_across[*timeframes_buffer_pos] = since_last_transfer_time;
-    if(since_last_transfer_time > ((timeframes_t)(0xFFFFFFFFFFFFFFFF)))
-        timeframes_across[*timeframes_buffer_pos] = ((timeframes_t)(0xFFFFFFFFFFFFFFFF));
-    timeframes_transfer[*timeframes_buffer_pos] = transfer_time;
-    if(transfer_time > ((timeframes_t)(0xFFFFFFFFFFFFFFFF)))
-        timeframes_transfer[*timeframes_buffer_pos] = ((timeframes_t)(0xFFFFFFFFFFFFFFFF));
-    *timeframes_buffer_pos = ((*timeframes_buffer_pos) + 1) % TIMEFRAMES_BUFFER_SIZE;
+    debug_store_timeframe(timeframes_across, timeframes_buffer_pos, curr_time - last_transfer_time);
+    debug_store_timeframe(timeframes_transfer, timeframes_buffer_pos, curr_time - saved_time);
+    timeframes_buffer_pos = (timeframes_buffer_pos + 1) % TIMEFRAMES_BUFFER_SIZE;
 #endif
 #ifdef FAST_ALIGNMENT
-    uint64_t dest_time = curr_time + ((transfer_time + (*saved_bits) - 1) / (*saved_bits));
+    uint64_t dest_time = curr_time + ((curr_time - saved_time + saved_bits - 1) / saved_bits);
 #endif
     if (linkcable_irq_handler) linkcable_irq_handler();
     if (pio_interrupt_get(LINKCABLE_PIO, 0)) pio_interrupt_clear(LINKCABLE_PIO, 0);
@@ -77,6 +76,12 @@ static void TIME_SENSITIVE(linkcable_isr)(void) {
 #endif
 }
 
+static void debug_store_timeframe(timeframes_t *timeframes, uint32_t buffer_pos, uint64_t value) {
+    timeframes[buffer_pos] = value;
+    if(value > ((timeframes_t)(0xFFFFFFFFFFFFFFFF)))
+        timeframes[buffer_pos] = ((timeframes_t)(0xFFFFFFFFFFFFFFFF));
+}
+
 bool linkcable_is_enabled(void) {
     return is_enabled;
 }
@@ -84,7 +89,7 @@ bool linkcable_is_enabled(void) {
 bool can_disable_linkcable_irq(void) {
     if(!is_enabled)
         return true;
-    uint64_t old_time = *last_transfer_time;
+    uint64_t old_time = last_transfer_time;
     uint64_t curr_time = time_us_64();
     if((curr_time - old_time) >= SEC(1))
         return true;
@@ -107,37 +112,37 @@ void print_last_linkcable(void) {
 #ifdef LOG_DIRECT_SEND_RECV
     log_t debug_buffer[LOG_BUFFER_SIZE];
 
-    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_in, *log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
+    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_in, log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
     debug_send((uint8_t*)debug_buffer, sizeof(debug_buffer), GBRIDGE_CMD_DEBUG_LOG_IN);
 
-    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_out, *log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
+    prepare_debug_buffer(debug_buffer, log_linkcable_buffer_out, log_buffer_pos, LOG_BUFFER_SIZE, sizeof(log_t));
     debug_send((uint8_t*)debug_buffer, sizeof(debug_buffer), GBRIDGE_CMD_DEBUG_LOG_OUT);
 #endif
 #ifdef DEBUG_TIMEFRAMES
     timeframes_t debug_buffer_timeframes[TIMEFRAMES_BUFFER_SIZE];
 
-    prepare_debug_buffer(debug_buffer_timeframes, timeframes_transfer, *timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
+    prepare_debug_buffer(debug_buffer_timeframes, timeframes_transfer, timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
     debug_send((uint8_t*)debug_buffer_timeframes, sizeof(debug_buffer_timeframes), GBRIDGE_CMD_DEBUG_TIME_TR);
 
-    prepare_debug_buffer(debug_buffer_timeframes, timeframes_across, *timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
+    prepare_debug_buffer(debug_buffer_timeframes, timeframes_across, timeframes_buffer_pos, TIMEFRAMES_BUFFER_SIZE, sizeof(timeframes_t));
     debug_send((uint8_t*)debug_buffer_timeframes, sizeof(debug_buffer_timeframes), GBRIDGE_CMD_DEBUG_TIME_AC);
 #endif
 }
 
 uint32_t TIME_SENSITIVE(linkcable_receive)(void) {
-    uint32_t retval = (pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM) & ((1 << (*saved_bits)) - 1));
+    uint32_t retval = (pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM) & ((1 << saved_bits) - 1));
 #ifdef LOG_DIRECT_SEND_RECV
-    log_linkcable_buffer_in[*log_buffer_pos] = retval;
+    log_linkcable_buffer_in[log_buffer_pos] = retval;
 #endif
     return retval;
 }
 
 void TIME_SENSITIVE(linkcable_send)(uint32_t data) {
 #ifdef LOG_DIRECT_SEND_RECV
-    log_linkcable_buffer_out[*log_buffer_pos] = data;
-    *log_buffer_pos = ((*log_buffer_pos) + 1) % LOG_BUFFER_SIZE;
+    log_linkcable_buffer_out[log_buffer_pos] = data;
+    log_buffer_pos = (log_buffer_pos + 1) % LOG_BUFFER_SIZE;
 #endif
-    uint32_t sendval = (data << (32 - (*saved_bits)));
+    uint32_t sendval = (data << (32 - saved_bits));
     pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, sendval);
 }
 
@@ -146,7 +151,7 @@ void TIME_SENSITIVE(clean_linkcable_fifos)(void) {
 }
 
 void linkcable_enable(void) {
-    while(!(*is_linkcable_ready));
+    while(!is_linkcable_ready);
     is_enabled = true;
     pio_sm_set_enabled(LINKCABLE_PIO, LINKCABLE_SM, true);
 }
@@ -168,43 +173,18 @@ void linkcable_reset(bool re_enable) {
 
 void linkcable_set_is_32(bool is_32) {
     if(is_32)
-        *saved_bits = 32;
+        saved_bits = 32;
     else
-        *saved_bits = 8;
+        saved_bits = 8;
 #ifdef STACKSMASHING
-    linkcable_select_mode(LINKCABLE_PIO, LINKCABLE_SM, *saved_bits);
-#endif
-}
-
-void init_linkcable_pre_split(void) {
-    // Annoyingly, data accessed by both cores has to be malloced,
-    // or it will hang... Apparently... :/
-    // I tried checking if using volatile would help,
-    // but it didn't for is_linkcable_ready...
-    is_linkcable_ready = malloc(sizeof(bool));
-    saved_bits = malloc(sizeof(uint8_t));
-    last_transfer_time = malloc(sizeof(uint64_t));
-    *saved_bits = DEFAULT_SAVED_BITS;
-    *last_transfer_time = 0;
-    *is_linkcable_ready = false;
-#ifdef DEBUG_TIMEFRAMES
-    timeframes_buffer_pos = malloc(sizeof(uint32_t));
-    *timeframes_buffer_pos = 0;
-    timeframes_across = malloc(TIMEFRAMES_BUFFER_SIZE * sizeof(timeframes_t));
-    timeframes_transfer = malloc(TIMEFRAMES_BUFFER_SIZE * sizeof(timeframes_t));
-#endif
-#ifdef LOG_DIRECT_SEND_RECV
-    log_buffer_pos = malloc(sizeof(uint32_t));
-    *log_buffer_pos = 0;
-    log_linkcable_buffer_out = malloc(LOG_BUFFER_SIZE * sizeof(log_t));
-    log_linkcable_buffer_in = malloc(LOG_BUFFER_SIZE * sizeof(log_t));
+    linkcable_select_mode(LINKCABLE_PIO, LINKCABLE_SM, saved_bits);
 #endif
 }
 
 void linkcable_init(irq_handler_t onDataReceive) {
-    *saved_bits = DEFAULT_SAVED_BITS;
+    saved_bits = DEFAULT_SAVED_BITS;
 #ifdef STACKSMASHING
-    linkcable_sm_program_init(LINKCABLE_PIO, LINKCABLE_SM, linkcable_pio_initial_pc = pio_add_program(LINKCABLE_PIO, &linkcable_sm_program), DEFAULT_SAVED_BITS);
+    linkcable_sm_program_init(LINKCABLE_PIO, LINKCABLE_SM, linkcable_pio_initial_pc = pio_add_program(LINKCABLE_PIO, &linkcable_sm_program), saved_bits);
 #else
     linkcable_program_init(LINKCABLE_PIO, LINKCABLE_SM, linkcable_pio_initial_pc = pio_add_program(LINKCABLE_PIO, &linkcable_program), CABLE_PINS_START);
 #endif
@@ -222,5 +202,5 @@ void linkcable_init(irq_handler_t onDataReceive) {
     irq_set_exclusive_handler(PIO0_IRQ_1, linkcable_time_isr);
     irq_set_enabled(PIO0_IRQ_1, true);
 #endif
-    *is_linkcable_ready = true;
+    is_linkcable_ready = true;
 }
