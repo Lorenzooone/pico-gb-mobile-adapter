@@ -38,7 +38,7 @@ uint32_t *log_buffer_pos = NULL;
 
 static irq_handler_t linkcable_irq_handler = NULL;
 static uint32_t linkcable_pio_initial_pc = 0;
-static uint saved_bits = DEFAULT_SAVED_BITS;
+uint8_t *saved_bits = NULL;
 static uint64_t saved_time = 0;
 bool is_enabled = false;
 bool *is_linkcable_ready = NULL;
@@ -61,7 +61,7 @@ static void TIME_SENSITIVE(linkcable_isr)(void) {
     *timeframes_buffer_pos = ((*timeframes_buffer_pos) + 1) % TIMEFRAMES_BUFFER_SIZE;
 #endif
 #ifdef FAST_ALIGNMENT
-    uint64_t dest_time = curr_time + ((transfer_time + saved_bits - 1) / saved_bits);
+    uint64_t dest_time = curr_time + ((transfer_time + (*saved_bits) - 1) / (*saved_bits));
 #endif
     if (linkcable_irq_handler) linkcable_irq_handler();
     if (pio_interrupt_get(LINKCABLE_PIO, 0)) pio_interrupt_clear(LINKCABLE_PIO, 0);
@@ -125,7 +125,7 @@ void print_last_linkcable(void) {
 }
 
 uint32_t TIME_SENSITIVE(linkcable_receive)(void) {
-    uint32_t retval = (pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM) & ((1 << saved_bits) - 1));
+    uint32_t retval = (pio_sm_get(LINKCABLE_PIO, LINKCABLE_SM) & ((1 << (*saved_bits)) - 1));
 #ifdef LOG_DIRECT_SEND_RECV
     log_linkcable_buffer_in[*log_buffer_pos] = retval;
 #endif
@@ -137,7 +137,7 @@ void TIME_SENSITIVE(linkcable_send)(uint32_t data) {
     log_linkcable_buffer_out[*log_buffer_pos] = data;
     *log_buffer_pos = ((*log_buffer_pos) + 1) % LOG_BUFFER_SIZE;
 #endif
-    uint32_t sendval = (data << (32 - saved_bits));
+    uint32_t sendval = (data << (32 - (*saved_bits)));
     pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, sendval);
 }
 
@@ -168,35 +168,41 @@ void linkcable_reset(bool re_enable) {
 
 void linkcable_set_is_32(bool is_32) {
     if(is_32)
-        saved_bits = 32;
+        *saved_bits = 32;
     else
-        saved_bits = 8;
+        *saved_bits = 8;
 #ifdef STACKSMASHING
-    linkcable_select_mode(LINKCABLE_PIO, LINKCABLE_SM, saved_bits);
+    linkcable_select_mode(LINKCABLE_PIO, LINKCABLE_SM, *saved_bits);
 #endif
 }
 
-void linkcable_pre_split(void) {
+void init_linkcable_pre_split(void) {
+    // Annoyingly, data accessed by both cores has to be malloced,
+    // or it will hang... Apparently... :/
+    // I tried checking if using volatile would help,
+    // but it didn't for is_linkcable_ready...
     is_linkcable_ready = malloc(sizeof(bool));
+    saved_bits = malloc(sizeof(uint8_t));
     last_transfer_time = malloc(sizeof(uint64_t));
-    timeframes_buffer_pos = malloc(sizeof(uint32_t));
-    log_buffer_pos = malloc(sizeof(uint32_t));
-    *log_buffer_pos = 0;
-    *timeframes_buffer_pos = 0;
+    *saved_bits = DEFAULT_SAVED_BITS;
     *last_transfer_time = 0;
     *is_linkcable_ready = false;
 #ifdef DEBUG_TIMEFRAMES
+    timeframes_buffer_pos = malloc(sizeof(uint32_t));
+    *timeframes_buffer_pos = 0;
     timeframes_across = malloc(TIMEFRAMES_BUFFER_SIZE * sizeof(timeframes_t));
     timeframes_transfer = malloc(TIMEFRAMES_BUFFER_SIZE * sizeof(timeframes_t));
 #endif
 #ifdef LOG_DIRECT_SEND_RECV
+    log_buffer_pos = malloc(sizeof(uint32_t));
+    *log_buffer_pos = 0;
     log_linkcable_buffer_out = malloc(LOG_BUFFER_SIZE * sizeof(log_t));
     log_linkcable_buffer_in = malloc(LOG_BUFFER_SIZE * sizeof(log_t));
 #endif
 }
 
 void linkcable_init(irq_handler_t onDataReceive) {
-    saved_bits = DEFAULT_SAVED_BITS;
+    *saved_bits = DEFAULT_SAVED_BITS;
 #ifdef STACKSMASHING
     linkcable_sm_program_init(LINKCABLE_PIO, LINKCABLE_SM, linkcable_pio_initial_pc = pio_add_program(LINKCABLE_PIO, &linkcable_sm_program), DEFAULT_SAVED_BITS);
 #else

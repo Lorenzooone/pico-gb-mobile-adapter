@@ -83,12 +83,12 @@ void TIME_SENSITIVE(core_1_main)(void) {
 // main loop
 int main(void) {
     board_init();
-    linkcable_pre_split();
+    init_linkcable_pre_split();
     bool is_same_core = true;
 #ifdef USE_CORE_1_AS_WELL
     is_same_core = false;
 #endif
-    init_disable_ack(is_same_core);
+    init_pico_mobile_pre_split(is_same_core);
 #ifdef USE_CORE_1_AS_WELL
     multicore_launch_core1(&core_1_main);
 #endif
