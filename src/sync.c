@@ -8,7 +8,7 @@ void set_core_shared(bool is_same_core) {
 }
 
 void TIME_SENSITIVE(init_sync)(sync_t* ack) {
-    *ack = false;
+    *ack = true;
 }
 
 void TIME_SENSITIVE(ack_sync_req)(sync_t* ack) {
