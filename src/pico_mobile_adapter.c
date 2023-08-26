@@ -13,6 +13,7 @@
 #include "flash_eeprom.h"
 #include "useful_qualifiers.h"
 #include "utils.h"
+#include "sync.h"
 
 #define DEBUG_MAX_SIZE 0x200
 
@@ -23,7 +24,6 @@ static bool impl_config_read(void *user, void *dest, const uintptr_t offset, con
 static void impl_time_latch(void *user, unsigned timer);
 static bool impl_time_check_ms(void *user, unsigned timer, unsigned ms);
 static void impl_update_number(void *user, enum mobile_number type, const char *number);
-static void wait_for_ack(void);
 
 #define DNS_DEFAULT_IP 127, 0, 0, 1
 #define DNS_DEFAULT_PORT 53
@@ -36,9 +36,16 @@ static uint64_t time_last_config_edit = 0;
 
 struct mobile_user *mobile = NULL;
 upkeep_callback saved_callback = NULL;
-volatile bool ack_disable = false;
-bool shared_same_core = true;
+sync_t ack_disable;
 bool isLinkCable32 = false;
+
+void init_disable_handler(void) {
+    init_sync(&ack_disable);
+}
+
+void TIME_SENSITIVE(handle_disable_request)(void) {   
+    ack_sync_req(&ack_disable);
+}
 
 void call_upkeep_callback(void) {
     if(saved_callback)
@@ -54,21 +61,6 @@ void TIME_SENSITIVE(link_cable_ISR)(void) {
     }
     clean_linkcable_fifos();
     linkcable_send(data);
-}
-
-void set_core_shared(bool is_same_core) {
-    shared_same_core = is_same_core;
-}
-
-void TIME_SENSITIVE(enable_ack)(void) {
-    ack_disable = true;
-}
-
-static void wait_for_ack(void) {
-    if(!shared_same_core) {
-        ack_disable = false;
-        while(!ack_disable);
-    }
 }
 
 void pico_mobile_init(upkeep_callback callback) {
@@ -110,14 +102,6 @@ void pico_mobile_init(upkeep_callback callback) {
     mobile_start(mobile->adapter);
     
     mobile_validate_relay();
-}
-
-void irqs_disable(void) {
-    linkcable_disable();
-}
-
-void irqs_enable(void) {
-    linkcable_enable();
 }
 
 void pico_mobile_loop(bool is_same_core) {
@@ -166,7 +150,7 @@ void impl_debug_log(void *user, const char *line){
 static void impl_serial_disable(void *user) {
     struct mobile_user *mobile = (struct mobile_user *)user;
     linkcable_disable();
-    wait_for_ack();
+    wait_for_sync(&ack_disable);
     print_last_linkcable();
 }
 

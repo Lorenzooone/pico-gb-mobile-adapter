@@ -1,7 +1,7 @@
 #ifndef USEFUL_QUALIFIERS_H_
 #define USEFUL_QUALIFIERS_H_
 
-#define TIME_SENSITIVE(x) __not_in_flash_func(x)
+#define TIME_SENSITIVE(x) __attribute__((section(".time_critical." #x))) x
 
 #ifndef TIME_SENSITIVE
 #define TIME_SENSITIVE(x) x

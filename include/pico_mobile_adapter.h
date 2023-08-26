@@ -26,8 +26,8 @@ struct mobile_user {
     char number_peer[MOBILE_MAX_NUMBER_SIZE + 1];
 };
 
-void enable_ack(void);
-void set_core_shared(bool is_same_core);
+void init_disable_handler(void);
+void handle_disable_request(void);
 
 struct mobile_user* get_mobile_user(void);
 void call_upkeep_callback(void);

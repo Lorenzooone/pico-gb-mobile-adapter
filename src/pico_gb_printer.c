@@ -14,6 +14,7 @@
 #include "bridge_debug_commands.h"
 #include "pico/multicore.h"
 #include "useful_qualifiers.h"
+#include "sync.h"
 
 #include "linkcable.h"
 
@@ -76,13 +77,16 @@ void loop_upkeep_functions(bool is_in_mobile_loop);
 void TIME_SENSITIVE(core_1_main)(void) {
     linkcable_init(link_cable_ISR);
     while(1) {
-        enable_ack();
+        handle_disable_request();
+        handle_time_request();
     }
 }
 
 // main loop
 int main(void) {
     board_init();
+    init_disable_handler();
+    init_time_request_handler();
     bool is_same_core = true;
 #ifdef USE_CORE_1_AS_WELL
     is_same_core = false;

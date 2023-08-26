@@ -13,6 +13,8 @@
 
 #define CABLE_PINS_START    0
 
+void init_time_request_handler(void);
+void handle_time_request(void);
 uint32_t linkcable_receive(void);
 void linkcable_send(uint32_t data);
 void clean_linkcable_fifos(void);

@@ -10,6 +10,7 @@
 #include "gbridge.h"
 #include "useful_qualifiers.h"
 #include "utils.h"
+#include "sync.h"
 
 //#define FAST_ALIGNMENT
 //#define DEBUG_TIMEFRAMES
@@ -30,6 +31,7 @@ typedef uint16_t timeframes_t;
 typedef uint8_t log_t;
 
 static void debug_store_timeframe(timeframes_t *timeframes, uint32_t buffer_pos, uint64_t value);
+static uint64_t get_last_transfer_time(void);
 
 #ifdef DEBUG_TIMEFRAMES
 timeframes_t timeframes_across[TIMEFRAMES_BUFFER_SIZE];
@@ -50,6 +52,25 @@ static uint64_t saved_time = 0;
 bool is_enabled = false;
 bool is_linkcable_ready = false;
 uint64_t last_transfer_time = 0;
+uint64_t shared_last_transfer_time = 0;
+sync_t ack_time_request;
+
+void init_time_request_handler(void) {
+    init_sync(&ack_time_request);
+}
+
+void TIME_SENSITIVE(handle_time_request)(void) {   
+    if(is_sync_req(&ack_time_request)) {
+        shared_last_transfer_time = last_transfer_time;
+        ack_sync_req(&ack_time_request);
+    }
+}
+
+static uint64_t get_last_transfer_time(void) {
+    if(wait_for_sync(&ack_time_request))
+        return shared_last_transfer_time;
+    return last_transfer_time;
+}
 
 static void TIME_SENSITIVE(linkcable_isr)(void) {
     uint64_t curr_time = time_us_64();
@@ -89,7 +110,7 @@ bool linkcable_is_enabled(void) {
 bool can_disable_linkcable_irq(void) {
     if(!is_enabled)
         return true;
-    uint64_t old_time = last_transfer_time;
+    uint64_t old_time = get_last_transfer_time();
     uint64_t curr_time = time_us_64();
     if((curr_time - old_time) >= SEC(1))
         return true;
