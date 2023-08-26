@@ -111,6 +111,23 @@ class GBridgeCommand:
             print(GBridgeCommand.prepare_hex_list_str(self.data))
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CFG:
             print(GBridgeCommand.prepare_hex_list_str(self.data))
+        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_INFO_NAME:
+            print(bytes(self.data).decode('utf-8'))
+        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_INFO_OTHER:
+            print(bytes(self.data).decode('utf-8'))
+        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_STATUS:
+            str_status = "STATUS: "
+            if(self.data[0] & 1):
+                str_status += "ACTIVE, "
+            else:
+                str_status += "STOPPED, "
+            if(self.data[0] & 2):
+                str_status += "CAN SAVE"
+            else:
+                str_status += "CANNOT SAVE"
+            print(str_status)
+        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_ACK:
+            print("OPERATION SUCCESSFUL")
     
     def prepare_str_out(self, size_entry):
         str_out = ""
@@ -165,7 +182,11 @@ class GBridgeCommand:
 class GBridge:
     GBRIDGE_CMD_DEBUG_LINE = 0x02
     GBRIDGE_CMD_DEBUG_CHAR = 0x03
-    GBRIDGE_CMD_DEBUG_CFG = 0x05
+    GBRIDGE_CMD_DEBUG_CFG = 0x04
+    GBRIDGE_CMD_DEBUG_INFO_NAME = 0x05
+    GBRIDGE_CMD_DEBUG_INFO_OTHER = 0x06
+    GBRIDGE_CMD_DEBUG_STATUS = 0x07
+    GBRIDGE_CMD_DEBUG_ACK = 0x08
     GBRIDGE_CMD_DATA = 0x0A
     GBRIDGE_CMD_STREAM = 0x0C
     GBRIDGE_CMD_DEBUG_LOG_IN = 0x15
@@ -176,7 +197,19 @@ class GBridge:
     GBRIDGE_CMD_STREAM_PC = 0x4C
     GBRIDGE_CMD_REPLY_F = 0x80
     
-    no_reply_upper_cmds = {GBRIDGE_CMD_DEBUG_LINE, GBRIDGE_CMD_DEBUG_CHAR, GBRIDGE_CMD_DEBUG_CFG, GBRIDGE_CMD_DEBUG_LOG_IN, GBRIDGE_CMD_DEBUG_LOG_OUT, GBRIDGE_CMD_DEBUG_TIME_TR, GBRIDGE_CMD_DEBUG_TIME_AC}
+    no_reply_upper_cmds = {
+        GBRIDGE_CMD_DEBUG_LINE,
+        GBRIDGE_CMD_DEBUG_CHAR,
+        GBRIDGE_CMD_DEBUG_CFG,
+        GBRIDGE_CMD_DEBUG_LOG_IN,
+        GBRIDGE_CMD_DEBUG_LOG_OUT,
+        GBRIDGE_CMD_DEBUG_TIME_TR,
+        GBRIDGE_CMD_DEBUG_TIME_AC,
+        GBRIDGE_CMD_DEBUG_INFO_OTHER,
+        GBRIDGE_CMD_DEBUG_INFO_NAME,
+        GBRIDGE_CMD_DEBUG_STATUS,
+        GBRIDGE_CMD_DEBUG_ACK
+    }
     
     cmd_lens = {
         GBRIDGE_CMD_DATA: 1,
@@ -184,6 +217,10 @@ class GBridge:
         GBRIDGE_CMD_DEBUG_LINE: 2,
         GBRIDGE_CMD_DEBUG_CHAR: 2,
         GBRIDGE_CMD_DEBUG_CFG: 2,
+        GBRIDGE_CMD_DEBUG_INFO_OTHER: 2,
+        GBRIDGE_CMD_DEBUG_INFO_NAME: 2,
+        GBRIDGE_CMD_DEBUG_STATUS: 2,
+        GBRIDGE_CMD_DEBUG_ACK: 0,
         GBRIDGE_CMD_DEBUG_LOG_IN: 2,
         GBRIDGE_CMD_DEBUG_LOG_OUT: 2,
         GBRIDGE_CMD_DEBUG_TIME_TR: 2,
@@ -256,6 +293,66 @@ class GBridge:
         self.curr_data = []
         self.checksum = 0
         self.checksum_okay = None
+
+class GBridgeDebugCommands:
+    SEND_EEPROM_CMD = 1
+    UPDATE_EEPROM_CMD = 2
+    UPDATE_RELAY_CMD = 3
+    UPDATE_RELAY_TOKEN_CMD = 4
+    UPDATE_DNS1_CMD = 5
+    UPDATE_DNS2_CMD = 6
+    UPDATE_P2P_PORT_CMD = 7
+    UPDATE_DEVICE_CMD = 8
+    SEND_NAME_INFO_CMD = 9
+    SEND_OTHER_INFO_CMD = 10
+    STOP_CMD = 11
+    START_CMD = 12
+    STATUS_CMD = 13
+    
+    def load_command(command_id):
+        if command_id in GBridgeDebugCommands.command_methods.keys():
+            ack_wanted = 0
+            if command_id in GBridgeDebugCommands.wants_ack:
+                ack_wanted = 1
+            total_data = GBridgeDebugCommands.command_methods[command_id](command_id)
+            checksum = GBridge.calc_checksum(total_data)
+            final_data = total_data + list(checksum.to_bytes(2, byteorder='big'))
+            return final_data, ack_wanted
+        return [], 0
+
+    def single_command(command_id):
+        return [command_id]
+    
+    def to_implement(command_id):
+        print("NOT IMPLEMENTED: " + command_id)
+    
+    command_methods = {
+        SEND_EEPROM_CMD: single_command,
+        UPDATE_EEPROM_CMD: to_implement,
+        UPDATE_RELAY_CMD: to_implement,
+        UPDATE_RELAY_TOKEN_CMD: to_implement,
+        UPDATE_DNS1_CMD: to_implement,
+        UPDATE_DNS2_CMD: to_implement,
+        UPDATE_P2P_PORT_CMD: to_implement,
+        UPDATE_DEVICE_CMD: to_implement,
+        SEND_NAME_INFO_CMD: single_command,
+        SEND_OTHER_INFO_CMD: single_command,
+        STOP_CMD: single_command,
+        START_CMD: single_command,
+        STATUS_CMD: single_command
+    }
+    
+    wants_ack = {
+        UPDATE_EEPROM_CMD,
+        UPDATE_RELAY_CMD,
+        UPDATE_RELAY_TOKEN_CMD,
+        UPDATE_DNS1_CMD,
+        UPDATE_DNS2_CMD,
+        UPDATE_P2P_PORT_CMD,
+        UPDATE_DEVICE_CMD,
+        STOP_CMD,
+        START_CMD
+    }
 
 class GBridgeSocket:
     MOBILE_SOCKTYPE_TCP = 0

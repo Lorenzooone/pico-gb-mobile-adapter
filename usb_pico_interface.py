@@ -5,7 +5,7 @@ import sys
 import traceback
 import time
 from time import sleep
-from gbridge import GBridge, GBridgeSocket
+from gbridge import GBridge, GBridgeSocket, GBridgeDebugCommands
 import os
 
 import threading
@@ -22,18 +22,23 @@ class KeyboardThread(threading.Thread):
 
     def __init__(self):
         super(KeyboardThread, self).__init__()
-        self.recieved = []
+        self.received = []
         self.daemon = True
+        self.received_lock = threading.Lock()
         self.start()
 
     def run(self):
         while True:
-            self.recieved += [input()]
+            read_data = input()
+            self.received_lock.acquire()
+            self.received += [read_data]
+            self.received_lock.release()
 
     def get_input(self):
-        out = self.recieved
-        if(len(self.recieved) > 0):
-            self.recieved = []
+        self.received_lock.acquire()
+        out = self.received
+        self.received = []
+        self.received_lock.release()
         return out
 
 class SocketThread(threading.Thread):
@@ -109,37 +114,46 @@ class SocketThread(threading.Thread):
         return self.out_data
     
 def interpret_input_keyboard(key_input, debug_send_list, save_requests):
-    SEND_EEPROM_CMD = 1
+
+    basic_commands = {
+        "GET EEPROM": GBridgeDebugCommands.SEND_EEPROM_CMD,
+        "GET STATUS": GBridgeDebugCommands.STATUS_CMD,
+        "START ADAPTER": GBridgeDebugCommands.START_CMD,
+        "STOP ADAPTER": GBridgeDebugCommands.STOP_CMD,
+        "GET NAME": GBridgeDebugCommands.SEND_NAME_INFO_CMD,
+        "GET INFO": GBridgeDebugCommands.SEND_OTHER_INFO_CMD
+    }
+
+    path_send_commands = {
+        "SAVE EEPROM": GBridgeDebugCommands.SEND_EEPROM_CMD
+    }
+
+    saving_commands = {
+        "SAVE EEPROM": GBridge.GBRIDGE_CMD_DEBUG_CFG,
+        "SAVE DBG_IN": GBridge.GBRIDGE_CMD_DEBUG_LOG_IN,
+        "SAVE DBG_OUT": GBridge.GBRIDGE_CMD_DEBUG_LOG_OUT,
+        "SAVE TIME_TR": GBridge.GBRIDGE_CMD_DEBUG_TIME_TR,
+        "SAVE TIME_AC": GBridge.GBRIDGE_CMD_DEBUG_TIME_AC
+    }
 
     for elem in key_input.get_input():
-        if elem == "GET EEPROM":
-            debug_send_list += [SEND_EEPROM_CMD]
-        if elem.startswith("SAVE EEPROM"):
-            debug_send_list += [SEND_EEPROM_CMD]
-            tokens = elem.split()
-            if(len(tokens) > 2):
+        tokens = elem.split()
+        command = ""
+        if(len(tokens) >= 2):
+            command = tokens[0].upper().strip() + " " + tokens[1].upper().strip()
+
+        if command in basic_commands.keys():
+            result, ack_wanted = GBridgeDebugCommands.load_command(basic_commands[command])
+            debug_send_list += result
+        
+        if command in saving_commands.keys():
+            if command in path_send_commands.keys():
+                result, ack_wanted = GBridgeDebugCommands.load_command(path_send_commands[command])
+                debug_send_list += result
+
+            if (len(tokens) > 2):
                 save_path = tokens[2].strip()
-                save_requests[GBridge.GBRIDGE_CMD_DEBUG_CFG] = save_path
-        if elem.startswith("SAVE DBG_IN"):
-            tokens = elem.split()
-            if(len(tokens) > 2):
-                save_path = tokens[2].strip()
-                save_requests[GBridge.GBRIDGE_CMD_DEBUG_LOG_IN] = save_path
-        if elem.startswith("SAVE DBG_OUT"):
-            tokens = elem.split()
-            if(len(tokens) > 2):
-                save_path = tokens[2].strip()
-                save_requests[GBridge.GBRIDGE_CMD_DEBUG_LOG_OUT] = save_path
-        if elem.startswith("SAVE TIME_TR"):
-            tokens = elem.split()
-            if(len(tokens) > 2):
-                save_path = tokens[2].strip()
-                save_requests[GBridge.GBRIDGE_CMD_DEBUG_TIME_TR] = save_path
-        if elem.startswith("SAVE TIME_AC"):
-            tokens = elem.split()
-            if(len(tokens) > 2):
-                save_path = tokens[2].strip()
-                save_requests[GBridge.GBRIDGE_CMD_DEBUG_TIME_AC] = save_path
+                save_requests[saving_commands[command]] = save_path
 
 def prepare_out_func(analyzed_list, is_debug_cmd):
     DEBUG_CMD_TRANSFER_FLAG = 0xC0

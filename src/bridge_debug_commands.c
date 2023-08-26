@@ -5,6 +5,7 @@
 #include "gbridge.h"
 #include "pico_mobile_adapter.h"
 #include "bridge_debug_commands.h"
+#include "flash_eeprom.h"
 #include "utils.h"
 
 #define MAX_DEBUG_COMMAND_SIZE 0x3F
