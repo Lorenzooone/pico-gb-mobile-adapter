@@ -4,7 +4,7 @@
 #define IN_BUFFER_SIZE 0x100
 
 #ifdef BIG_BUFFER
-#define DEBUG_OUT_BUFFER_SIZE 0x9000
+#define DEBUG_OUT_BUFFER_SIZE 0xB000
 #else
 #define DEBUG_OUT_BUFFER_SIZE 0x800
 #endif

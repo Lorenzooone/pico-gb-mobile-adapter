@@ -20,22 +20,13 @@ enum gbridge_cmd {
     GBRIDGE_CMD_PING = 0x01,
     GBRIDGE_CMD_DEBUG_LINE = 0x02,
     GBRIDGE_CMD_DEBUG_CHAR = 0x03,
-    GBRIDGE_CMD_DEBUG_CFG = 0x04,
-    GBRIDGE_CMD_DEBUG_INFO_NAME = 0x05,
-    GBRIDGE_CMD_DEBUG_INFO_OTHER = 0x06,
-    GBRIDGE_CMD_DEBUG_STATUS = 0x07,
+    GBRIDGE_CMD_DEBUG_INFO = 0x04,
+    GBRIDGE_CMD_DEBUG_LOG = 0x05,
     GBRIDGE_CMD_DEBUG_ACK = 0x08,
     GBRIDGE_CMD_DATA = 0x0A,
     GBRIDGE_CMD_DATA_FAIL = 0x0B,  // Checksum failure, retry
     GBRIDGE_CMD_STREAM = 0x0C,
     GBRIDGE_CMD_STREAM_FAIL = 0x0D,  // Checksum failure, retry
-
-    // START of LOG Commands, not real, for debug
-    GBRIDGE_CMD_DEBUG_LOG_IN = 0x15,
-    GBRIDGE_CMD_DEBUG_LOG_OUT = 0x16,
-    GBRIDGE_CMD_DEBUG_TIME_TR = 0x17,
-    GBRIDGE_CMD_DEBUG_TIME_AC = 0x18,
-    // END of LOG Commands, not real, for debug
 
     // from PC
     GBRIDGE_CMD_PROG_STOP = 0x41,
@@ -45,6 +36,14 @@ enum gbridge_cmd {
     GBRIDGE_CMD_STREAM_PC = 0x4C,
     GBRIDGE_CMD_STREAM_FAIL_PC = 0x4D,  // Checksum failure, retry
     GBRIDGE_CMD_RESET = 0x4F,
+};
+
+enum log_cmd {
+    CMD_DEBUG_LOG_IN = 0x01,
+    CMD_DEBUG_LOG_OUT = 0x02,
+    CMD_DEBUG_LOG_TIME_TR = 0x03,
+    CMD_DEBUG_LOG_TIME_AC = 0x04,
+    CMD_DEBUG_LOG_TIME_IR = 0x05,
 };
 
 struct gbridge_data {

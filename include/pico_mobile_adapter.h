@@ -19,11 +19,11 @@ typedef void (*upkeep_callback) (bool);
 
 struct mobile_user {
     struct mobile_adapter *adapter;
-    enum mobile_action action;
-    unsigned long picow_clock_latch[MOBILE_MAX_TIMERS];
+    uint64_t clock[MOBILE_MAX_TIMERS];
     uint8_t config_eeprom[EEPROM_SIZE];
     char number_user[MOBILE_MAX_NUMBER_SIZE + 1];
     char number_peer[MOBILE_MAX_NUMBER_SIZE + 1];
+    bool started;
 };
 
 void init_disable_handler(void);

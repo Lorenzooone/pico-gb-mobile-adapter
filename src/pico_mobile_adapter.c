@@ -3,7 +3,6 @@
 #include <string.h>
 #include <stdio.h>
 #include <mobile.h>
-#include <mobile_inet.h>
 #include "hardware/timer.h"
 #include "pico_mobile_adapter.h"
 #include "socket_impl.h"
@@ -93,14 +92,15 @@ void pico_mobile_init(upkeep_callback callback) {
 
     mobile_config_load(mobile->adapter);
 
-    mobile->action = MOBILE_ACTION_NONE;
+    mobile->started = false;
     mobile->number_user[0] = '\0';
     mobile->number_peer[0] = '\0';
     for (int i = 0; i < MOBILE_MAX_TIMERS; i++)
-        mobile->picow_clock_latch[i] = 0;
+        mobile->clock[i] = 0;
 
     mobile_start(mobile->adapter);
-    
+    mobile->started = true;
+
     mobile_validate_relay();
 }
 
@@ -187,12 +187,12 @@ bool impl_config_write(void *user, const void *src, const uintptr_t offset, cons
 
 static void impl_time_latch(void *user, unsigned timer) {
     struct mobile_user *mobile = (struct mobile_user *)user;
-    mobile->picow_clock_latch[timer] = time_us_64();
+    mobile->clock[timer] = time_us_64();
 }
 
 static bool impl_time_check_ms(void *user, unsigned timer, unsigned ms) {
     struct mobile_user *mobile = (struct mobile_user *)user;
-    return ((time_us_64() - mobile->picow_clock_latch[timer]) >= (ms * 1000));
+    return ((time_us_64() - mobile->clock[timer]) >= MSEC(ms));
 }
 
 static void impl_update_number(void *user, enum mobile_number type, const char *number){

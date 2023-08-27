@@ -109,63 +109,85 @@ class GBridgeCommand:
             print(bytes(self.data).decode('utf-8'), end='')
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CHAR:
             print(GBridgeCommand.prepare_hex_list_str(self.data))
-        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CFG:
-            print(GBridgeCommand.prepare_hex_list_str(self.data))
-        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_INFO_NAME:
-            print(bytes(self.data).decode('utf-8'))
-        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_INFO_OTHER:
-            print(bytes(self.data).decode('utf-8'))
-        if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_STATUS:
-            str_status = "STATUS: "
-            if(self.data[0] & 1):
-                str_status += "ACTIVE, "
-            else:
-                str_status += "STOPPED, "
-            if(self.data[0] & 2):
-                str_status += "CAN SAVE"
-            else:
-                str_status += "CANNOT SAVE"
-            print(str_status)
+        if (self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_INFO) and (len(self.data) > 0):
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_CFG:
+                print(GBridgeCommand.prepare_hex_list_str(self.data[1:]))
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NAME:
+                print(bytes(self.data[1:]).decode('utf-8'))
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_OTHER:
+                print(bytes(self.data[1:]).decode('utf-8'))
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_STATUS:
+                str_status = "STATUS: "
+                if(self.data[1] & 1):
+                    str_status += "ACTIVE, "
+                else:
+                    str_status += "STOPPED, "
+                if(self.data[1] & 2):
+                    str_status += "CAN SAVE"
+                else:
+                    str_status += "CANNOT SAVE"
+                print(str_status)
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NUMBER:
+                print("YOUR NUMBER: " + bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'))
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NUMBER_PEER:
+                print("OTHER'S NUMBER: " + bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'))
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_RELAY_TOKEN:
+                if len(self.data) > 1:
+                    str_out = "RELAY TOKEN: "
+                    if self.data[1] == 0:
+                        str_out += "None"
+                    else:
+                        str_out += bytes(self.data[2:]).hex().upper()
+                    print(str_out)
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_ACK:
             print("OPERATION SUCCESSFUL")
     
     def prepare_str_out(self, size_entry):
         str_out = ""
-        for i in range(int(len(self.data) / size_entry)):
-            str_out += str(int.from_bytes(self.data[i * size_entry: (i + 1) * size_entry], byteorder='little')) + "\n"
+        for i in range(int(len(self.data[1:]) / size_entry)):
+            str_out += str(int.from_bytes(self.data[1 + (i * size_entry): 1 + ((i + 1) * size_entry)], byteorder='little')) + "\n"
         return str_out
+
+    def save_x_size(self, size_entry):
+        str_out = self.prepare_str_out(size_entry)
+        with open(save_requests[self.upper_cmd][self.data[0]], "w") as f:
+            f.write(str_out)
+        save_requests[self.upper_cmd][self.data[0]] = ""
     
     def check_save(self, save_requests):
-        if (self.upper_cmd in save_requests.keys()) and (save_requests[self.upper_cmd] != ""):
-            single_byte_saves = {GBridge.GBRIDGE_CMD_DEBUG_CFG, GBridge.GBRIDGE_CMD_DEBUG_LOG_IN, GBridge.GBRIDGE_CMD_DEBUG_LOG_OUT}
-            uint8_t_saves = {}
-            uint16_t_saves = {GBridge.GBRIDGE_CMD_DEBUG_TIME_TR, GBridge.GBRIDGE_CMD_DEBUG_TIME_AC}
-            uint32_t_saves = {}
-            uint64_t_saves = {}
-            if self.upper_cmd in single_byte_saves:
-                with open(save_requests[self.upper_cmd], "wb") as f:
-                    f.write(bytes(self.data))
-                save_requests[self.upper_cmd] = ""
-            if self.upper_cmd in uint8_t_saves:
-                str_out = self.prepare_str_out(1)
-                with open(save_requests[self.upper_cmd], "w") as f:
-                    f.write(str_out)
-                save_requests[self.upper_cmd] = ""
-            if self.upper_cmd in uint16_t_saves:
-                str_out = self.prepare_str_out(2)
-                with open(save_requests[self.upper_cmd], "w") as f:
-                    f.write(str_out)
-                save_requests[self.upper_cmd] = ""
-            if self.upper_cmd in uint32_t_saves:
-                str_out = self.prepare_str_out(4)
-                with open(save_requests[self.upper_cmd], "w") as f:
-                    f.write(str_out)
-                save_requests[self.upper_cmd] = ""
-            if self.upper_cmd in uint64_t_saves:
-                str_out = self.prepare_str_out(8)
-                with open(save_requests[self.upper_cmd], "w") as f:
-                    f.write(str_out)
-                save_requests[self.upper_cmd] = ""
+        if (self.upper_cmd in save_requests.keys()) and (len(self.data) > 0) and (self.data[0] in save_requests[self.upper_cmd].keys()) and (save_requests[self.upper_cmd][self.data[0]] != ""):
+            single_byte_saves = {
+                GBridge.GBRIDGE_CMD_DEBUG_INFO : {GBridgeDebugCommands.CMD_DEBUG_INFO_CFG},
+                GBridge.GBRIDGE_CMD_DEBUG_LOG : {GBridgeDebugCommands.CMD_DEBUG_LOG_IN, GBridgeDebugCommands.CMD_DEBUG_LOG_OUT}
+            }
+            uint8_t_saves = {
+                GBridge.GBRIDGE_CMD_DEBUG_INFO : {},
+                GBridge.GBRIDGE_CMD_DEBUG_LOG : {}
+            }
+            uint16_t_saves = {
+                GBridge.GBRIDGE_CMD_DEBUG_INFO : {},
+                GBridge.GBRIDGE_CMD_DEBUG_LOG : {GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_TR, GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_AC, GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_IR}
+            }
+            uint32_t_saves = {
+                GBridge.GBRIDGE_CMD_DEBUG_INFO : {},
+                GBridge.GBRIDGE_CMD_DEBUG_LOG : {}
+            }
+            uint64_t_saves = {
+                GBridge.GBRIDGE_CMD_DEBUG_INFO : {},
+                GBridge.GBRIDGE_CMD_DEBUG_LOG : {}
+            }
+            if self.data[0] in single_byte_saves[self.upper_cmd]:
+                with open(save_requests[self.upper_cmd][self.data[0]], "wb") as f:
+                    f.write(bytes(self.data[1:]))
+                save_requests[self.upper_cmd][self.data[0]] = ""
+            if self.data[0] in uint8_t_saves[self.upper_cmd]:
+                self.save_x_size(1)
+            if self.data[0] in uint16_t_saves[self.upper_cmd]:
+                self.save_x_size(2)
+            if self.data[0] in uint32_t_saves[self.upper_cmd]:
+                self.save_x_size(4)
+            if self.data[0] in uint64_t_saves[self.upper_cmd]:
+                self.save_x_size(8)
     
     def prepare_hex_list_str(values):
         string_out = "["
@@ -182,17 +204,11 @@ class GBridgeCommand:
 class GBridge:
     GBRIDGE_CMD_DEBUG_LINE = 0x02
     GBRIDGE_CMD_DEBUG_CHAR = 0x03
-    GBRIDGE_CMD_DEBUG_CFG = 0x04
-    GBRIDGE_CMD_DEBUG_INFO_NAME = 0x05
-    GBRIDGE_CMD_DEBUG_INFO_OTHER = 0x06
-    GBRIDGE_CMD_DEBUG_STATUS = 0x07
+    GBRIDGE_CMD_DEBUG_INFO = 0x04
+    GBRIDGE_CMD_DEBUG_LOG = 0x05
     GBRIDGE_CMD_DEBUG_ACK = 0x08
     GBRIDGE_CMD_DATA = 0x0A
     GBRIDGE_CMD_STREAM = 0x0C
-    GBRIDGE_CMD_DEBUG_LOG_IN = 0x15
-    GBRIDGE_CMD_DEBUG_LOG_OUT = 0x16
-    GBRIDGE_CMD_DEBUG_TIME_TR = 0x17
-    GBRIDGE_CMD_DEBUG_TIME_AC = 0x18
     GBRIDGE_CMD_DATA_PC = 0x4A
     GBRIDGE_CMD_STREAM_PC = 0x4C
     GBRIDGE_CMD_REPLY_F = 0x80
@@ -200,14 +216,8 @@ class GBridge:
     no_reply_upper_cmds = {
         GBRIDGE_CMD_DEBUG_LINE,
         GBRIDGE_CMD_DEBUG_CHAR,
-        GBRIDGE_CMD_DEBUG_CFG,
-        GBRIDGE_CMD_DEBUG_LOG_IN,
-        GBRIDGE_CMD_DEBUG_LOG_OUT,
-        GBRIDGE_CMD_DEBUG_TIME_TR,
-        GBRIDGE_CMD_DEBUG_TIME_AC,
-        GBRIDGE_CMD_DEBUG_INFO_OTHER,
-        GBRIDGE_CMD_DEBUG_INFO_NAME,
-        GBRIDGE_CMD_DEBUG_STATUS,
+        GBRIDGE_CMD_DEBUG_INFO,
+        GBRIDGE_CMD_DEBUG_LOG,
         GBRIDGE_CMD_DEBUG_ACK
     }
     
@@ -216,15 +226,9 @@ class GBridge:
         GBRIDGE_CMD_STREAM: 2,
         GBRIDGE_CMD_DEBUG_LINE: 2,
         GBRIDGE_CMD_DEBUG_CHAR: 2,
-        GBRIDGE_CMD_DEBUG_CFG: 2,
-        GBRIDGE_CMD_DEBUG_INFO_OTHER: 2,
-        GBRIDGE_CMD_DEBUG_INFO_NAME: 2,
-        GBRIDGE_CMD_DEBUG_STATUS: 2,
-        GBRIDGE_CMD_DEBUG_ACK: 0,
-        GBRIDGE_CMD_DEBUG_LOG_IN: 2,
-        GBRIDGE_CMD_DEBUG_LOG_OUT: 2,
-        GBRIDGE_CMD_DEBUG_TIME_TR: 2,
-        GBRIDGE_CMD_DEBUG_TIME_AC: 2
+        GBRIDGE_CMD_DEBUG_INFO: 2,
+        GBRIDGE_CMD_DEBUG_LOG: 2,
+        GBRIDGE_CMD_DEBUG_ACK: 0
     }
 
     def __init__(self):
@@ -308,6 +312,23 @@ class GBridgeDebugCommands:
     STOP_CMD = 11
     START_CMD = 12
     STATUS_CMD = 13
+    SEND_NUMBER_OWN_CMD = 14
+    SEND_NUMBER_OTHER_CMD = 15
+    SEND_RELAY_TOKEN_CMD = 16
+
+    CMD_DEBUG_INFO_CFG = 0x01
+    CMD_DEBUG_INFO_NAME = 0x02
+    CMD_DEBUG_INFO_OTHER = 0x03
+    CMD_DEBUG_INFO_STATUS = 0x04
+    CMD_DEBUG_INFO_NUMBER = 0x05
+    CMD_DEBUG_INFO_NUMBER_PEER = 0x06
+    CMD_DEBUG_INFO_RELAY_TOKEN = 0x07
+    
+    CMD_DEBUG_LOG_IN = 0x01
+    CMD_DEBUG_LOG_OUT = 0x02
+    CMD_DEBUG_LOG_TIME_TR = 0x03
+    CMD_DEBUG_LOG_TIME_AC = 0x04
+    CMD_DEBUG_LOG_TIME_IR = 0x05
 
     MAXIMUM_LENGTH = 0x40 - 1 - 1 - 2
 
@@ -376,7 +397,10 @@ class GBridgeDebugCommands:
         SEND_OTHER_INFO_CMD: single_command,
         STOP_CMD: single_command,
         START_CMD: single_command,
-        STATUS_CMD: single_command
+        STATUS_CMD: single_command,
+        SEND_NUMBER_OWN_CMD: single_command,
+        SEND_NUMBER_OTHER_CMD: single_command,
+        SEND_RELAY_TOKEN_CMD: single_command
     }
     
     wants_ack = {

@@ -121,7 +121,10 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
         "START ADAPTER": GBridgeDebugCommands.START_CMD,
         "STOP ADAPTER": GBridgeDebugCommands.STOP_CMD,
         "GET NAME": GBridgeDebugCommands.SEND_NAME_INFO_CMD,
-        "GET INFO": GBridgeDebugCommands.SEND_OTHER_INFO_CMD
+        "GET INFO": GBridgeDebugCommands.SEND_OTHER_INFO_CMD,
+        "GET NUMBER": GBridgeDebugCommands.SEND_NUMBER_OWN_CMD,
+        "GET NUMBER_PEER": GBridgeDebugCommands.SEND_NUMBER_OTHER_CMD,
+        "GET RELAY_TOKEN": GBridgeDebugCommands.SEND_RELAY_TOKEN_CMD
     }
     
     mobile_adapter_commands = {
@@ -154,11 +157,12 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
     }
 
     saving_commands = {
-        "SAVE EEPROM": GBridge.GBRIDGE_CMD_DEBUG_CFG,
-        "SAVE DBG_IN": GBridge.GBRIDGE_CMD_DEBUG_LOG_IN,
-        "SAVE DBG_OUT": GBridge.GBRIDGE_CMD_DEBUG_LOG_OUT,
-        "SAVE TIME_TR": GBridge.GBRIDGE_CMD_DEBUG_TIME_TR,
-        "SAVE TIME_AC": GBridge.GBRIDGE_CMD_DEBUG_TIME_AC
+        "SAVE EEPROM": [GBridge.GBRIDGE_CMD_DEBUG_INFO, GBridgeDebugCommands.CMD_DEBUG_INFO_CFG],
+        "SAVE DBG_IN": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_IN],
+        "SAVE DBG_OUT": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_OUT],
+        "SAVE TIME_TR": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_TR],
+        "SAVE TIME_AC": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_AC],
+        "SAVE TIME_IR": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_IR]
     }
     
     mobile_adapter_types = {
@@ -185,7 +189,9 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
 
             if len(tokens) > 2:
                 save_path = tokens[2].strip()
-                save_requests[saving_commands[command]] = save_path
+                if saving_commands[command][0] not in save_requests.keys():
+                    save_requests[saving_commands[command][0]] = dict()
+                save_requests[saving_commands[command][0]][saving_commands[command][1]] = save_path
         
         if command in loading_commands:
             if len(tokens) > 2:
@@ -233,7 +239,10 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
                 except:
                     pass
                 if len(data) == RELAY_TOKEN_SIZE:
-                    result, ack_wanted = GBridgeDebugCommands.load_command(token_commands[command], value)
+                    result, ack_wanted = GBridgeDebugCommands.load_command(token_commands[command], [1] + data)
+                    debug_send_list += result
+                elif tokens[2].upper().strip() == "NULL":
+                    result, ack_wanted = GBridgeDebugCommands.load_command(token_commands[command], [0])
                     debug_send_list += result
 
 def prepare_out_func(analyzed_list, is_debug_cmd):
