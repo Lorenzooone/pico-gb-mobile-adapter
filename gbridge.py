@@ -398,7 +398,7 @@ class GBridgeDebugCommands:
                 right_side = len(total_data)
             curr_data = [command_id] + total_data[left_side : right_side]
             checksum = GBridge.calc_checksum(curr_data)
-            final_data += curr_data + list(checksum.to_bytes(2, byteorder='big'))
+            final_data += [curr_data + list(checksum.to_bytes(2, byteorder='big'))]
             num_acks += ack_wanted
         return final_data, ack_wanted
 

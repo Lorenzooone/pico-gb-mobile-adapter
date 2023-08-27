@@ -115,6 +115,12 @@ class SocketThread(threading.Thread):
         self.lock_out.acquire()
 
         return self.out_data
+
+def add_result_debug_commands(actual_cmd, data, debug_send_list, ack_requests):
+    result, ack_wanted = GBridgeDebugCommands.load_command(actual_cmd, data)
+    debug_send_list += result
+    ack_requests[actual_cmd] = ack_wanted
+    
     
 def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requests):
 
@@ -187,15 +193,11 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
             command = tokens[0].upper().strip() + " " + tokens[1].upper().strip()
 
         if command in basic_commands.keys():
-            result, ack_wanted = GBridgeDebugCommands.load_command(basic_commands[command], None)
-            debug_send_list += result
-            ack_requests[basic_commands[command]] = ack_wanted
+            add_result_debug_commands(basic_commands[command], None, debug_send_list, ack_requests)
         
         if command in saving_commands.keys():
             if command in path_send_commands.keys():
-                result, ack_wanted = GBridgeDebugCommands.load_command(path_send_commands[command], None)
-                debug_send_list += result
-                ack_requests[path_send_commands[command]] = ack_wanted
+                add_result_debug_commands(path_send_commands[command], None, debug_send_list, ack_requests)
 
             if len(tokens) > 2:
                 save_path = tokens[2].strip()
@@ -211,11 +213,9 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
                     data = file_read.read()
                 if data is not None:
                     if command in path_send_commands.keys():
-                        result, ack_wanted = GBridgeDebugCommands.load_command(path_send_commands[command], data)
-                        debug_send_list += result
-                        ack_requests[path_send_commands[command]] = ack_wanted
+                        add_result_debug_commands(path_send_commands[command], data, debug_send_list, ack_requests)
 
-        if command in mobile_adapter_commands:
+        if command in mobile_adapter_commands.keys():
             if len(tokens) > 2:
                 mobile_type = tokens[2].upper().strip()
                 metered = True
@@ -225,38 +225,28 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
                     data = mobile_adapter_types[mobile_type]
                     if not metered:
                         data |= 0x80
-                    result, ack_wanted = GBridgeDebugCommands.load_command(mobile_adapter_commands[command], data)
-                    debug_send_list += result
-                    ack_requests[mobile_adapter_commands[command]] = ack_wanted
+                    add_result_debug_commands(mobile_adapter_commands[command], data, debug_send_list, ack_requests)
 
-        if command in unsigned_commands:
+        if command in unsigned_commands.keys():
             if len(tokens) > 2:
                 value = GBridgeSocket.parse_unsigned(unsigned_commands[command], tokens[2])
                 if value is not None:
-                    result, ack_wanted = GBridgeDebugCommands.load_command(unsigned_commands[command], value)
-                    debug_send_list += result
-                    ack_requests[unsigned_commands[command]] = ack_wanted
+                    add_result_debug_commands(unsigned_commands[command], value, debug_send_list, ack_requests)
 
-        if command in address_commands:
+        if command in address_commands.keys():
             if len(tokens) > 2:
                 data = GBridgeSocket.parse_addr(address_commands[command], tokens[2:])
                 if data is not None:
-                    result, ack_wanted = GBridgeDebugCommands.load_command(address_commands[command], data)
-                    debug_send_list += result
-                    ack_requests[address_commands[command]] = ack_wanted
+                    add_result_debug_commands(address_commands[command], data, debug_send_list, ack_requests)
 
-        if command in on_off_commands:
+        if command in on_off_commands.keys():
             if len(tokens) > 2:
                 if(tokens[2].upper().strip() == "ON"):
-                    result, ack_wanted = GBridgeDebugCommands.load_command(on_off_commands[command], 1)
-                    debug_send_list += result
-                    ack_requests[on_off_commands[command]] = ack_wanted
+                    add_result_debug_commands(on_off_commands[command], 1, debug_send_list, ack_requests)
                 if(tokens[2].upper().strip() == "OFF"):
-                    result, ack_wanted = GBridgeDebugCommands.load_command(on_off_commands[command], 0)
-                    debug_send_list += result
-                    ack_requests[on_off_commands[command]] = ack_wanted
+                    add_result_debug_commands(on_off_commands[command], 0, debug_send_list, ack_requests)
 
-        if command in token_commands:
+        if command in token_commands.keys():
             if len(tokens) > 2:
                 data = []
                 try:
@@ -264,13 +254,9 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
                 except:
                     pass
                 if len(data) == RELAY_TOKEN_SIZE:
-                    result, ack_wanted = GBridgeDebugCommands.load_command(token_commands[command], [1] + data)
-                    debug_send_list += result
-                    ack_requests[token_commands[command]] = ack_wanted
+                    add_result_debug_commands(token_commands[command], [1] + data, debug_send_list, ack_requests)
                 elif tokens[2].upper().strip() == "NULL":
-                    result, ack_wanted = GBridgeDebugCommands.load_command(token_commands[command], [0])
-                    debug_send_list += result
-                    ack_requests[token_commands[command]] = ack_wanted
+                    add_result_debug_commands(token_commands[command], [0], debug_send_list, ack_requests)
 
 def prepare_out_func(analyzed_list, is_debug_cmd):
     DEBUG_CMD_TRANSFER_FLAG = 0xC0
@@ -306,8 +292,11 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
         interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requests)
 
         if len(send_list) == 0:
-            out_buf, num_elems = prepare_out_func(debug_send_list, True)
-            debug_send_list = debug_send_list[num_elems:]
+            if len(debug_send_list) > 0:
+                out_buf, num_elems = prepare_out_func(debug_send_list[0], True)
+                debug_send_list = debug_send_list[1:]
+            else:
+                out_buf, num_elems = prepare_out_func([], True)
         else:
             out_buf, num_elems = prepare_out_func(send_list, False)
             send_list = send_list[num_elems:]
