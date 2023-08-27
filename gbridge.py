@@ -368,6 +368,9 @@ class GBridgeDebugCommands:
     def byte_command(command_id, data):
         return [data & 0xFF]
 
+    def unsigned_command(command_id, data):
+        return [(data >> 8) & 0xFF, data & 0xFF]
+
     def send_dump_command(command_id, data):
         return GBridgeDebugCommands.prepare_offsetted_data(list(data))
 
@@ -397,7 +400,7 @@ class GBridgeDebugCommands:
         UPDATE_RELAY_TOKEN_CMD: send_preprocessed_data,
         UPDATE_DNS1_CMD: send_preprocessed_data,
         UPDATE_DNS2_CMD: send_preprocessed_data,
-        UPDATE_P2P_PORT_CMD: send_preprocessed_data,
+        UPDATE_P2P_PORT_CMD: unsigned_command,
         UPDATE_DEVICE_CMD: byte_command,
         SEND_NAME_INFO_CMD: single_command,
         SEND_OTHER_INFO_CMD: single_command,
