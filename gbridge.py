@@ -308,33 +308,70 @@ class GBridgeDebugCommands:
     STOP_CMD = 11
     START_CMD = 12
     STATUS_CMD = 13
-    
-    def load_command(command_id):
-        if command_id in GBridgeDebugCommands.command_methods.keys():
-            ack_wanted = 0
-            if command_id in GBridgeDebugCommands.wants_ack:
-                ack_wanted = 1
-            total_data = GBridgeDebugCommands.command_methods[command_id](command_id)
-            checksum = GBridge.calc_checksum(total_data)
-            final_data = total_data + list(checksum.to_bytes(2, byteorder='big'))
-            return final_data, ack_wanted
-        return [], 0
 
-    def single_command(command_id):
-        return [command_id]
-    
-    def to_implement(command_id):
+    MAXIMUM_LENGTH = 0x40 - 1 - 1 - 2
+
+    def load_command(command_id, data):
+        if command_id not in GBridgeDebugCommands.command_methods.keys():
+            return [], 0
+
+        ack_wanted = 0
+        if command_id in GBridgeDebugCommands.wants_ack:
+            ack_wanted = 1
+        num_acks = 0
+        total_data = GBridgeDebugCommands.command_methods[command_id](command_id, data)
+        num_iters = int((len(total_data) + GBridgeDebugCommands.MAXIMUM_LENGTH - 1) / GBridgeDebugCommands.MAXIMUM_LENGTH)
+        final_data = []
+        if(len(total_data) == 0):
+            num_iters = 1
+        for i in range(num_iters):
+            left_side = i * GBridgeDebugCommands.MAXIMUM_LENGTH
+            right_side = (i + 1) * GBridgeDebugCommands.MAXIMUM_LENGTH
+            if right_side > len(total_data):
+                right_side = len(total_data)
+            curr_data = [command_id] + total_data[left_side : right_side]
+            checksum = GBridge.calc_checksum(curr_data)
+            final_data += curr_data + list(checksum.to_bytes(2, byteorder='big'))
+            num_acks += ack_wanted
+        return final_data, ack_wanted
+
+    def single_command(command_id, data):
+        return []
+
+    def byte_command(command_id, data):
+        return [data & 0xFF]
+
+    def send_dump_command(command_id, data):
+        return GBridgeDebugCommands.prepare_offsetted_data(list(data))
+
+    def prepare_offsetted_data(data):
+        total_data = []
+        single_split_length = GBridgeDebugCommands.MAXIMUM_LENGTH - 2
+        num_iters = int((len(data) + single_split_length - 1) / single_split_length)
+        for i in range(num_iters):
+            left_side = i * single_split_length
+            right_side = (i + 1) * single_split_length
+            if right_side > len(data):
+                right_side = len(data)
+            total_data += list(left_side.to_bytes(2, byteorder='big')) + data[left_side : right_side]
+        return total_data
+
+    def send_preprocessed_data(command_id, data):
+        return list(data)
+
+    def to_implement(command_id, data):
         print("NOT IMPLEMENTED: " + command_id)
+        return []
     
     command_methods = {
         SEND_EEPROM_CMD: single_command,
-        UPDATE_EEPROM_CMD: to_implement,
-        UPDATE_RELAY_CMD: to_implement,
-        UPDATE_RELAY_TOKEN_CMD: to_implement,
-        UPDATE_DNS1_CMD: to_implement,
-        UPDATE_DNS2_CMD: to_implement,
-        UPDATE_P2P_PORT_CMD: to_implement,
-        UPDATE_DEVICE_CMD: to_implement,
+        UPDATE_EEPROM_CMD: send_dump_command,
+        UPDATE_RELAY_CMD: send_preprocessed_data,
+        UPDATE_RELAY_TOKEN_CMD: send_preprocessed_data,
+        UPDATE_DNS1_CMD: send_preprocessed_data,
+        UPDATE_DNS2_CMD: send_preprocessed_data,
+        UPDATE_P2P_PORT_CMD: send_preprocessed_data,
+        UPDATE_DEVICE_CMD: byte_command,
         SEND_NAME_INFO_CMD: single_command,
         SEND_OTHER_INFO_CMD: single_command,
         STOP_CMD: single_command,
@@ -384,7 +421,7 @@ class GBridgeSocket:
         else:
             return (address, port, 0, 0)
     
-    def write_addr(data):
+    def write_addr(data, port=None):
         type_conn = GBridgeSocket.MOBILE_ADDRTYPE_NONE
         type_conn_id = None
         if data is not None:
@@ -398,9 +435,57 @@ class GBridgeSocket:
         if type_conn == GBridgeSocket.MOBILE_ADDRTYPE_NONE:
             return [type_conn]
         
-        out_bytes = [type_conn, (data[1] >> 8) & 0xFF, data[1] & 0xFF]
+        if port is None:
+            port = data[1]
+        out_bytes = [type_conn, (port >> 8) & 0xFF, port & 0xFF]
         out_bytes += socket.inet_pton(type_conn_id, data[0])
         return out_bytes
+
+    def parse_unsigned(token):
+        if token is None:
+            return None
+
+        value = None
+        try:
+            value = int(token.upper().strip())
+        except:
+            pass
+        if value is not None:
+            if (value < 0) or (value >= 65536):
+                value = None
+        return value
+
+    def parse_addr(tokens):
+        if tokens is None:
+            return None
+        if len(tokens) <= 0:
+            return None
+        
+        port_str = tokens[0].upper().strip()
+        type_conn = GBridgeSocket.MOBILE_ADDRTYPE_NONE
+        port = GBridgeSocket.parse_unsigned(port_str)
+        if port_str == "NULL":
+            port = -1
+        if port is not None:
+            if port == -1:
+                return [type_conn]
+            address = None
+            if len(tokens) > 1:
+                address_str = tokens[1].lower().strip()
+                try:
+                    address = socket.inet_pton(socket.AF_INET, address_str)
+                    type_conn = GBridgeSocket.MOBILE_ADDRTYPE_IPV4
+                except:
+                    pass
+                if address is None:
+                    try:
+                        address = socket.inet_pton(socket.AF_INET6, address_str)
+                        type_conn = GBridgeSocket.MOBILE_ADDRTYPE_IPV6
+                    except:
+                        pass
+            if address is not None:
+                return [type_conn, (port >> 8) & 0xFF, port & 0xFF] + list(address)
+        return None
 
     def __init__(self):
         self.debug_prints = False

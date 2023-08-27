@@ -123,9 +123,34 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
         "GET NAME": GBridgeDebugCommands.SEND_NAME_INFO_CMD,
         "GET INFO": GBridgeDebugCommands.SEND_OTHER_INFO_CMD
     }
+    
+    mobile_adapter_commands = {
+        "SET DEVICE": GBridgeDebugCommands.UPDATE_DEVICE_CMD
+    }
+    
+    unsigned_commands = {
+        "SET P2P_PORT": GBridgeDebugCommands.UPDATE_P2P_PORT_CMD
+    }
+    
+    token_commands = {
+        "SET RELAY_TOKEN": GBridgeDebugCommands.UPDATE_RELAY_TOKEN_CMD
+    }
+    
+    RELAY_TOKEN_SIZE = 0x10
+    
+    address_commands = {
+        "SET DNS_1": GBridgeDebugCommands.UPDATE_DNS1_CMD,
+        "SET DNS_2": GBridgeDebugCommands.UPDATE_DNS2_CMD,
+        "SET RELAY": GBridgeDebugCommands.UPDATE_RELAY_CMD,
+    }
 
     path_send_commands = {
-        "SAVE EEPROM": GBridgeDebugCommands.SEND_EEPROM_CMD
+        "SAVE EEPROM": GBridgeDebugCommands.SEND_EEPROM_CMD,
+        "LOAD EEPROM": GBridgeDebugCommands.UPDATE_EEPROM_CMD
+    }
+
+    loading_commands = {
+        "LOAD EEPROM"
     }
 
     saving_commands = {
@@ -135,6 +160,13 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
         "SAVE TIME_TR": GBridge.GBRIDGE_CMD_DEBUG_TIME_TR,
         "SAVE TIME_AC": GBridge.GBRIDGE_CMD_DEBUG_TIME_AC
     }
+    
+    mobile_adapter_types = {
+        "BLUE": 8,
+        "YELLOW": 9,
+        "GREEN": 10,
+        "RED": 11
+    }
 
     for elem in key_input.get_input():
         tokens = elem.split()
@@ -143,17 +175,66 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
             command = tokens[0].upper().strip() + " " + tokens[1].upper().strip()
 
         if command in basic_commands.keys():
-            result, ack_wanted = GBridgeDebugCommands.load_command(basic_commands[command])
+            result, ack_wanted = GBridgeDebugCommands.load_command(basic_commands[command], None)
             debug_send_list += result
         
         if command in saving_commands.keys():
             if command in path_send_commands.keys():
-                result, ack_wanted = GBridgeDebugCommands.load_command(path_send_commands[command])
+                result, ack_wanted = GBridgeDebugCommands.load_command(path_send_commands[command], None)
                 debug_send_list += result
 
-            if (len(tokens) > 2):
+            if len(tokens) > 2:
                 save_path = tokens[2].strip()
                 save_requests[saving_commands[command]] = save_path
+        
+        if command in loading_commands:
+            if len(tokens) > 2:
+                load_path = tokens[2].strip()
+                data = None
+                with open(load_path, mode='rb') as file_read:
+                    data = file_read.read()
+                if data is not None:
+                    if command in path_send_commands.keys():
+                        result, ack_wanted = GBridgeDebugCommands.load_command(path_send_commands[command], data)
+                        debug_send_list += result
+
+        if command in address_commands:
+            if len(tokens) > 2:
+                mobile_type = tokens[2].upper().strip()
+                metered = True
+                if (len(tokens) > 3) and tokens[3] == "UNMETERED":
+                    metered = False
+                if mobile_type in mobile_adapter_types.keys():
+                    data = mobile_adapter_types[mobile_type]
+                    if not metered:
+                        data |= 0x80
+                    result, ack_wanted = GBridgeDebugCommands.load_command(mobile_adapter_commands[command], data)
+                    debug_send_list += result
+
+        if command in unsigned_commands:
+            if len(tokens) > 2:
+                value = GBridgeSocket.parse_unsigned(tokens[2])
+                if value is not None:
+                    result, ack_wanted = GBridgeDebugCommands.load_command(unsigned_commands[command], value)
+                    debug_send_list += result
+
+        if command in address_commands:
+            if len(tokens) > 2:
+                data = GBridgeSocket.parse_addr(tokens[2:])
+                if data is not None:
+                    result, ack_wanted = GBridgeDebugCommands.load_command(address_commands[command], data)
+                    debug_send_list += result
+
+        if command in token_commands:
+            if len(tokens) > 2:
+                data = []
+                try:
+                    data = list(bytes.fromhex(tokens[2].upper().strip()))
+                except:
+                    pass
+                if len(data) == RELAY_TOKEN_SIZE:
+                    result, ack_wanted = GBridgeDebugCommands.load_command(token_commands[command], value)
+                    debug_send_list += result
 
 def prepare_out_func(analyzed_list, is_debug_cmd):
     DEBUG_CMD_TRANSFER_FLAG = 0xC0

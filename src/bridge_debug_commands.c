@@ -129,6 +129,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 return;
             
             mobile_config_set_device(mobile->adapter, device, unmetered);
+            mobile_config_save(mobile->adapter);
             debug_send_ack();
 
             break;
@@ -139,6 +140,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             uint16_t port = (data[0] << 8) | data[1];
 
             mobile_config_set_p2p_port(mobile->adapter, port);
+            mobile_config_save(mobile->adapter);
             debug_send_ack();
 
             break;
@@ -151,6 +153,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 return;
 
             mobile_config_set_relay(mobile->adapter, &target_addr);
+            mobile_config_save(mobile->adapter);
             debug_send_ack();
 
             break;
@@ -163,6 +166,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 return;
 
             mobile_config_set_dns(mobile->adapter, &target_addr, MOBILE_DNS1);
+            mobile_config_save(mobile->adapter);
             debug_send_ack();
 
             break;
@@ -175,6 +179,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 return;
 
             mobile_config_set_dns(mobile->adapter, &target_addr, MOBILE_DNS2);
+            mobile_config_save(mobile->adapter);
             debug_send_ack();
 
             break;
@@ -183,6 +188,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 return;
 
             mobile_config_set_relay_token(mobile->adapter, data);
+            mobile_config_save(mobile->adapter);
             debug_send_ack();
 
             break;
