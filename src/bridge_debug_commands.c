@@ -147,8 +147,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 size = EEPROM_SIZE - offset;
             
             impl_config_write(mobile, data + 2, offset, size);
-            mobile_init(mobile->adapter, mobile);
-            set_mobile_callbacks(mobile);
+            mobile_config_load(mobile->adapter);
             debug_send_ack();
 
             break;

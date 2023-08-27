@@ -23,6 +23,7 @@ static bool impl_config_read(void *user, void *dest, const uintptr_t offset, con
 static void impl_time_latch(void *user, unsigned timer);
 static bool impl_time_check_ms(void *user, unsigned timer, unsigned ms);
 static void impl_update_number(void *user, enum mobile_number type, const char *number);
+static void set_mobile_callbacks(struct mobile_user* mobile);
 
 #define DNS_DEFAULT_IP 127, 0, 0, 1
 #define DNS_DEFAULT_PORT 53
@@ -93,7 +94,7 @@ void pico_mobile_init(upkeep_callback callback) {
     mobile_validate_relay();
 }
 
-void set_mobile_callbacks(struct mobile_user* mobile) {
+static void set_mobile_callbacks(struct mobile_user* mobile) {
     mobile_def_debug_log(mobile->adapter, impl_debug_log);
     mobile_def_serial_disable(mobile->adapter, impl_serial_disable);
     mobile_def_serial_enable(mobile->adapter, impl_serial_enable);

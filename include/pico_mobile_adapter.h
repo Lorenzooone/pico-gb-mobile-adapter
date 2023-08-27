@@ -31,7 +31,6 @@ struct mobile_user {
 void init_disable_handler(void);
 void handle_disable_request(void);
 
-void set_mobile_callbacks(struct mobile_user* mobile);
 struct mobile_user* get_mobile_user(void);
 void call_upkeep_callback(void);
 void link_cable_ISR(void);
