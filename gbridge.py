@@ -574,7 +574,7 @@ class GBridgeSocket:
         return None
 
     def __init__(self):
-        self.debug_prints = True
+        self.debug_prints = False
         self.conn_data_last = None
         self.print_exception = True
         self.connect_socket = []
