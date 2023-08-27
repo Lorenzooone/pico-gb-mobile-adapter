@@ -179,6 +179,8 @@ int impl_sock_recv(void* user, unsigned conn, void *data, unsigned size, struct 
         return -1;
     if (sent_size <= 0)
         return sent_size;
+    if(!data)
+        return sent_size;
 
     size = sent_size;
 

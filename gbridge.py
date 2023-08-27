@@ -754,7 +754,10 @@ class GBridgeSocket:
             return 0
 
         try:
-            result = self.socket[conn].recvfrom(size)
+            if is_valid:
+                result = self.socket[conn].recvfrom(size)
+            else:
+                result = self.socket[conn].recvfrom(1, socket.MSG_PEEK)
             data_recv = list(result[0])
             source_recv = result[1]
             # Make sure at least one byte is in the buffer
@@ -772,6 +775,8 @@ class GBridgeSocket:
                     print(e)
                 return -1
 
+        if not is_valid:
+            return [[], [(len(data_recv) >> 8) & 0xFF, len(data_recv) & 0xFF] + GBridgeSocket.write_addr(source_recv)]
         return [data_recv, [(len(data_recv) >> 8) & 0xFF, len(data_recv) & 0xFF] + GBridgeSocket.write_addr(source_recv)]
     
     def recv(self, data):
