@@ -64,6 +64,6 @@ enum gbma_prot_cmd {
 bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool expected_data, uint32_t limit, uint32_t* read_size);
 void send_x_bytes(const uint8_t* buffer, uint32_t size, bool run_callback, bool send_checksum, bool is_data);
 void debug_send(uint8_t* buffer, uint32_t size, enum gbridge_cmd cmd);
-void debug_send_ack(void);
+void debug_send_ack(uint8_t command);
 
 #endif /* _GBRIDGE_H_ */

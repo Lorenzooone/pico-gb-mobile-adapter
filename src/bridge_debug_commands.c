@@ -148,19 +148,19 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             
             impl_config_write(mobile, data + 2, offset, size);
             mobile_config_load(mobile->adapter);
-            debug_send_ack();
+            debug_send_ack(cmd);
 
             break;
         case STOP_CMD:
             mobile_stop(mobile->adapter);
             mobile->started = false;
-            debug_send_ack();
+            debug_send_ack(cmd);
 
             break;
         case START_CMD:
             mobile_start(mobile->adapter);
             mobile->started = true;
-            debug_send_ack();
+            debug_send_ack(cmd);
 
             break;
         case SET_SAVE_STYLE_CMD:
@@ -168,14 +168,14 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 return;
 #ifdef USE_FLASH
             mobile->automatic_save = data[0];
-            debug_send_ack();
+            debug_send_ack(cmd);
 #endif
 
             break;
         case FORCE_SAVE_CMD:
 #ifdef USE_FLASH
             mobile->force_save = true;
-            debug_send_ack();
+            debug_send_ack(cmd);
 #endif
 
             break;
@@ -191,7 +191,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             
             mobile_config_set_device(mobile->adapter, device, unmetered);
             mobile_config_save(mobile->adapter);
-            debug_send_ack();
+            debug_send_ack(cmd);
 
             break;
         case UPDATE_P2P_PORT_CMD:
@@ -202,7 +202,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
 
             mobile_config_set_p2p_port(mobile->adapter, port);
             mobile_config_save(mobile->adapter);
-            debug_send_ack();
+            debug_send_ack(cmd);
 
             break;
         case UPDATE_RELAY_CMD:
@@ -215,7 +215,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
 
             mobile_config_set_relay(mobile->adapter, &target_addr);
             mobile_config_save(mobile->adapter);
-            debug_send_ack();
+            debug_send_ack(cmd);
 
             break;
         case UPDATE_DNS1_CMD:
@@ -228,7 +228,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
 
             mobile_config_set_dns(mobile->adapter, &target_addr, MOBILE_DNS1);
             mobile_config_save(mobile->adapter);
-            debug_send_ack();
+            debug_send_ack(cmd);
 
             break;
         case UPDATE_DNS2_CMD:
@@ -241,7 +241,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
 
             mobile_config_set_dns(mobile->adapter, &target_addr, MOBILE_DNS2);
             mobile_config_save(mobile->adapter);
-            debug_send_ack();
+            debug_send_ack(cmd);
 
             break;
         case UPDATE_RELAY_TOKEN_CMD:
@@ -259,7 +259,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 mobile_config_set_relay_token(mobile->adapter, NULL);
 
             mobile_config_save(mobile->adapter);
-            debug_send_ack();
+            debug_send_ack(cmd);
 
             break;
         default:

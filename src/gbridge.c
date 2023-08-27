@@ -162,8 +162,8 @@ void debug_send(uint8_t* buffer, uint32_t size, enum gbridge_cmd cmd)
     _send_x_bytes(buffer, size, cmd, 2, false, true, false, true);
 }
 
-void debug_send_ack(void)
+void debug_send_ack(uint8_t command)
 {
-    _send_x_bytes(NULL, 0, GBRIDGE_CMD_DEBUG_ACK, 0, false, false, false, true);
+    _send_x_bytes(&command, 1, GBRIDGE_CMD_DEBUG_ACK, 0, false, true, false, true);
 }
 
