@@ -124,7 +124,12 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
         "GET INFO": GBridgeDebugCommands.SEND_OTHER_INFO_CMD,
         "GET NUMBER": GBridgeDebugCommands.SEND_NUMBER_OWN_CMD,
         "GET NUMBER_PEER": GBridgeDebugCommands.SEND_NUMBER_OTHER_CMD,
-        "GET RELAY_TOKEN": GBridgeDebugCommands.SEND_RELAY_TOKEN_CMD
+        "GET RELAY_TOKEN": GBridgeDebugCommands.SEND_RELAY_TOKEN_CMD,
+        "FORCE SAVE": GBridgeDebugCommands.FORCE_SAVE_CMD
+    }
+    
+    on_off_commands = {
+        "AUTO SAVE": GBridgeDebugCommands.SET_SAVE_STYLE_CMD
     }
     
     mobile_adapter_commands = {
@@ -204,7 +209,7 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
                         result, ack_wanted = GBridgeDebugCommands.load_command(path_send_commands[command], data)
                         debug_send_list += result
 
-        if command in address_commands:
+        if command in mobile_adapter_commands:
             if len(tokens) > 2:
                 mobile_type = tokens[2].upper().strip()
                 metered = True
@@ -219,16 +224,25 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests):
 
         if command in unsigned_commands:
             if len(tokens) > 2:
-                value = GBridgeSocket.parse_unsigned(tokens[2])
+                value = GBridgeSocket.parse_unsigned(unsigned_commands[command], tokens[2])
                 if value is not None:
                     result, ack_wanted = GBridgeDebugCommands.load_command(unsigned_commands[command], value)
                     debug_send_list += result
 
         if command in address_commands:
             if len(tokens) > 2:
-                data = GBridgeSocket.parse_addr(tokens[2:])
+                data = GBridgeSocket.parse_addr(address_commands[command], tokens[2:])
                 if data is not None:
                     result, ack_wanted = GBridgeDebugCommands.load_command(address_commands[command], data)
+                    debug_send_list += result
+
+        if command in on_off_commands:
+            if len(tokens) > 2:
+                if(tokens[2].upper().strip() == "ON"):
+                    result, ack_wanted = GBridgeDebugCommands.load_command(on_off_commands[command], 1)
+                    debug_send_list += result
+                if(tokens[2].upper().strip() == "OFF"):
+                    result, ack_wanted = GBridgeDebugCommands.load_command(on_off_commands[command], 0)
                     debug_send_list += result
 
         if command in token_commands:

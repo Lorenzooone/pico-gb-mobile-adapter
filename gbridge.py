@@ -123,9 +123,13 @@ class GBridgeCommand:
                 else:
                     str_status += "STOPPED, "
                 if(self.data[1] & 2):
-                    str_status += "CAN SAVE"
+                    str_status += "CAN SAVE, "
                 else:
-                    str_status += "CANNOT SAVE"
+                    str_status += "CANNOT SAVE, "
+                if(self.data[1] & 4):
+                    str_status += "AUTOMATIC SAVE: ON"
+                else:
+                    str_status += "AUTOMATIC SAVE: OFF"
                 print(str_status)
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NUMBER:
                 print("YOUR NUMBER: " + bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'))
@@ -315,6 +319,8 @@ class GBridgeDebugCommands:
     SEND_NUMBER_OWN_CMD = 14
     SEND_NUMBER_OTHER_CMD = 15
     SEND_RELAY_TOKEN_CMD = 16
+    SET_SAVE_STYLE_CMD = 17
+    FORCE_SAVE_CMD = 18
 
     CMD_DEBUG_INFO_CFG = 0x01
     CMD_DEBUG_INFO_NAME = 0x02
@@ -400,7 +406,16 @@ class GBridgeDebugCommands:
         STATUS_CMD: single_command,
         SEND_NUMBER_OWN_CMD: single_command,
         SEND_NUMBER_OTHER_CMD: single_command,
-        SEND_RELAY_TOKEN_CMD: single_command
+        SEND_RELAY_TOKEN_CMD: single_command,
+        SET_SAVE_STYLE_CMD: byte_command,
+        FORCE_SAVE_CMD: single_command
+    }
+    
+    auto_unsigned_values = {
+        UPDATE_RELAY_CMD: 31227,
+        UPDATE_DNS1_CMD: 53,
+        UPDATE_DNS2_CMD: 53,
+        UPDATE_P2P_PORT_CMD: 1027
     }
     
     wants_ack = {
@@ -412,7 +427,9 @@ class GBridgeDebugCommands:
         UPDATE_P2P_PORT_CMD,
         UPDATE_DEVICE_CMD,
         STOP_CMD,
-        START_CMD
+        START_CMD,
+        SET_SAVE_STYLE_CMD,
+        FORCE_SAVE_CMD
     }
 
 class GBridgeSocket:
@@ -465,7 +482,7 @@ class GBridgeSocket:
         out_bytes += socket.inet_pton(type_conn_id, data[0])
         return out_bytes
 
-    def parse_unsigned(token):
+    def parse_unsigned(command, token):
         if token is None:
             return None
 
@@ -474,12 +491,14 @@ class GBridgeSocket:
             value = int(token.upper().strip())
         except:
             pass
+        if (token.upper().strip() == "AUTO") and (command in GBridgeDebugCommands.auto_unsigned_values.keys()):
+            value = GBridgeDebugCommands.auto_unsigned_values[command]
         if value is not None:
             if (value < 0) or (value >= 65536):
                 value = None
         return value
 
-    def parse_addr(tokens):
+    def parse_addr(command, tokens):
         if tokens is None:
             return None
         if len(tokens) <= 0:
@@ -487,7 +506,7 @@ class GBridgeSocket:
         
         port_str = tokens[0].upper().strip()
         type_conn = GBridgeSocket.MOBILE_ADDRTYPE_NONE
-        port = GBridgeSocket.parse_unsigned(port_str)
+        port = GBridgeSocket.parse_unsigned(command, port_str)
         if port_str == "NULL":
             port = -1
         if port is not None:

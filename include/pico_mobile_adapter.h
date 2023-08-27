@@ -24,11 +24,14 @@ struct mobile_user {
     char number_user[MOBILE_MAX_NUMBER_SIZE + 1];
     char number_peer[MOBILE_MAX_NUMBER_SIZE + 1];
     bool started;
+    bool automatic_save;
+    bool force_save;
 };
 
 void init_disable_handler(void);
 void handle_disable_request(void);
 
+void set_mobile_callbacks(struct mobile_user* mobile);
 struct mobile_user* get_mobile_user(void);
 void call_upkeep_callback(void);
 void link_cable_ISR(void);

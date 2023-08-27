@@ -28,7 +28,9 @@ enum bridge_debug_command_id {
     STATUS_CMD = 13,
     SEND_NUMBER_OWN_CMD = 14,
     SEND_NUMBER_OTHER_CMD = 15,
-    SEND_RELAY_TOKEN_CMD = 16
+    SEND_RELAY_TOKEN_CMD = 16,
+    SET_SAVE_STYLE_CMD = 17,
+    FORCE_SAVE_CMD = 18
 };
 
 enum bridge_debug_command_info_id {
@@ -92,6 +94,8 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 flag |= 1;
 #ifdef USE_FLASH
             flag |= 2;
+            if(mobile->automatic_save)
+                flag |= 4;
 #endif
             data_out[1] = flag;
             debug_send(data_out, 2, GBRIDGE_CMD_DEBUG_INFO);
@@ -144,6 +148,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             
             impl_config_write(mobile, data + 2, offset, size);
             mobile_init(mobile->adapter, mobile);
+            set_mobile_callbacks(mobile);
             debug_send_ack();
 
             break;
@@ -159,11 +164,27 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             debug_send_ack();
 
             break;
+        case SET_SAVE_STYLE_CMD:
+            if(size < 1)
+                return;
+#ifdef USE_FLASH
+            mobile->automatic_save = data[0];
+            debug_send_ack();
+#endif
+
+            break;
+        case FORCE_SAVE_CMD:
+#ifdef USE_FLASH
+            mobile->force_save = true;
+            debug_send_ack();
+#endif
+
+            break;
         case UPDATE_DEVICE_CMD:
             if(size < 1)
                 return;
 
-            bool unmetered = data[0] & 0x80;
+            bool unmetered = data[0] & 0x80 ? true : false;
             enum mobile_adapter_device device = data[0] & 0x7F;
             
             if((device != MOBILE_ADAPTER_BLUE) && (device != MOBILE_ADAPTER_RED) && (device != MOBILE_ADAPTER_YELLOW) && (device != MOBILE_ADAPTER_GREEN))
@@ -228,7 +249,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             if(size < 1)
                 return;
 
-            bool initialized = data[0];
+            bool initialized = data[0] ? true : false;
             size -= 1;
             if((initialized) && (size < MOBILE_RELAY_TOKEN_SIZE))
                 return;

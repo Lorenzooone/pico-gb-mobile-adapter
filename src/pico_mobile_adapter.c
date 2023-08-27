@@ -71,24 +71,13 @@ void pico_mobile_init(upkeep_callback callback) {
 #ifdef USE_FLASH
     ReadFlashConfig(mobile->config_eeprom, EEPROM_SIZE);
 #endif
+    mobile->automatic_save = true;
+    mobile->force_save = false;
 
     // Initialize mobile library
     mobile->adapter = mobile_new(mobile);
-    mobile_def_debug_log(mobile->adapter, impl_debug_log);
-    mobile_def_serial_disable(mobile->adapter, impl_serial_disable);
-    mobile_def_serial_enable(mobile->adapter, impl_serial_enable);
-    mobile_def_config_read(mobile->adapter, impl_config_read);
-    mobile_def_config_write(mobile->adapter, impl_config_write);
-    mobile_def_time_latch(mobile->adapter, impl_time_latch);
-    mobile_def_time_check_ms(mobile->adapter, impl_time_check_ms);
-    mobile_def_sock_open(mobile->adapter, impl_sock_open);
-    mobile_def_sock_close(mobile->adapter, impl_sock_close);
-    mobile_def_sock_connect(mobile->adapter, impl_sock_connect);
-    mobile_def_sock_listen(mobile->adapter, impl_sock_listen);
-    mobile_def_sock_accept(mobile->adapter, impl_sock_accept);
-    mobile_def_sock_send(mobile->adapter, impl_sock_send);
-    mobile_def_sock_recv(mobile->adapter, impl_sock_recv);
-    mobile_def_update_number(mobile->adapter, impl_update_number);
+
+    set_mobile_callbacks(mobile);
 
     mobile_config_load(mobile->adapter);
 
@@ -104,13 +93,31 @@ void pico_mobile_init(upkeep_callback callback) {
     mobile_validate_relay();
 }
 
+void set_mobile_callbacks(struct mobile_user* mobile) {
+    mobile_def_debug_log(mobile->adapter, impl_debug_log);
+    mobile_def_serial_disable(mobile->adapter, impl_serial_disable);
+    mobile_def_serial_enable(mobile->adapter, impl_serial_enable);
+    mobile_def_config_read(mobile->adapter, impl_config_read);
+    mobile_def_config_write(mobile->adapter, impl_config_write);
+    mobile_def_time_latch(mobile->adapter, impl_time_latch);
+    mobile_def_time_check_ms(mobile->adapter, impl_time_check_ms);
+    mobile_def_sock_open(mobile->adapter, impl_sock_open);
+    mobile_def_sock_close(mobile->adapter, impl_sock_close);
+    mobile_def_sock_connect(mobile->adapter, impl_sock_connect);
+    mobile_def_sock_listen(mobile->adapter, impl_sock_listen);
+    mobile_def_sock_accept(mobile->adapter, impl_sock_accept);
+    mobile_def_sock_send(mobile->adapter, impl_sock_send);
+    mobile_def_sock_recv(mobile->adapter, impl_sock_recv);
+    mobile_def_update_number(mobile->adapter, impl_update_number);
+}
+
 void pico_mobile_loop(bool is_same_core) {
     // Mobile Adapter Main Loop
     mobile_loop(mobile->adapter);
 
 #ifdef USE_FLASH
     // Check if there is any new config to write on Flash
-    if(haveConfigToWrite){
+    if((haveConfigToWrite && mobile->automatic_save) || mobile->force_save) {
         bool can_disable_irqs = can_disable_linkcable_irq();
         uint64_t curr_time_last_config_edit = time_last_config_edit;
         if(((time_us_64() - curr_time_last_config_edit) > SEC(1)) && can_disable_irqs) {
@@ -119,6 +126,7 @@ void pico_mobile_loop(bool is_same_core) {
                 linkcable_disable();
             SaveFlashConfig(mobile->config_eeprom, EEPROM_SIZE);
             haveConfigToWrite = false;
+            mobile->force_save = false;
             if((!is_same_core) && prev_state)
                 linkcable_enable();
         }
