@@ -109,7 +109,7 @@ class GBridgeCommand:
             if not self.success_checksum:
                 print("CHECKSUM ERROR!")
                 return
-            print(bytes(self.data).decode('utf-8'), end='')
+            print(bytes(self.data).split(b'\0',1)[0].decode('ascii'), end='')
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CHAR:
             if not self.success_checksum:
                 print("CHECKSUM ERROR!")
@@ -131,9 +131,9 @@ class GBridgeCommand:
                 if not found:
                     print(GBridgeCommand.prepare_hex_list_str(self.data[1:]))
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NAME:
-                print(bytes(self.data[1:]).decode('utf-8'))
+                print(bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'))
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_OTHER:
-                print(bytes(self.data[1:]).decode('utf-8'))
+                print(bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'))
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_STATUS:
                 str_status = "STATUS: "
                 if(self.data[1] & 1):

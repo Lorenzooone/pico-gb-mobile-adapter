@@ -6,3 +6,4 @@ unused
 gen_build.bat
 *.bin
 token*
+logs
