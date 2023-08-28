@@ -68,7 +68,7 @@ bool speed_240_MHz = false;
 
 //------------- prototypes -------------//
 
-void handle_input_data(bool is_in_mobile_loop);
+void handle_input_data(bool is_in_mobile_loop, uint8_t* buf_in, uint32_t count);
 void led_blinking_task(void);
 void cdc_task(bool is_in_mobile_loop);
 void webserial_task(bool is_in_mobile_loop);
@@ -130,16 +130,14 @@ void echo_all(uint8_t buf[], uint32_t count)
     if ( web_serial_connected )
     {
         tud_vendor_write(buf, count);
+        tud_vendor_flush();
     }
 
     // echo to cdc
     if ( tud_cdc_connected() )
     {
         for(uint32_t i=0; i<count; i++)
-        {
             tud_cdc_write_char(buf[i]);
-            if ( buf[i] == '\r' ) tud_cdc_write_char('\n');
-        }
         tud_cdc_write_flush();
     }
 }
@@ -245,9 +243,7 @@ bool tud_vendor_control_complete_cb(uint8_t rhport, tusb_control_request_t const
     return true;
 }
 
-void handle_input_data(bool is_in_mobile_loop) {
-    uint8_t buf_in[MAX_TRANSFER_BYTES*2];
-    uint32_t count = tud_vendor_read((uint8_t*)buf_in, sizeof(buf_in));
+void handle_input_data(bool is_in_mobile_loop, uint8_t* buf_in, uint32_t count) {
     for(int i = count; i < (MAX_TRANSFER_BYTES*2); i++)
         buf_in[i] = 0;
     if(count > 1) {
@@ -261,6 +257,7 @@ void handle_input_data(bool is_in_mobile_loop) {
         }
     }
     uint8_t buf_out[MAX_TRANSFER_BYTES * 2];
+    uint8_t count_out = 1;
     for(int i = 0; i < (MAX_TRANSFER_BYTES*2); i++)
         buf_out[i] = 0;
     bool success;
@@ -269,6 +266,7 @@ void handle_input_data(bool is_in_mobile_loop) {
         if(!success)
             break;
         buf_out[0]++;
+        count_out++;
     }
     if(!buf_out[0]) {
         for(int i = 1; i < MAX_TRANSFER_BYTES; i++) {
@@ -276,18 +274,22 @@ void handle_input_data(bool is_in_mobile_loop) {
             if(!success)
                 break;
             buf_out[0]++;
+            count_out++;
         }
         if(buf_out[0])
             buf_out[0] |= DEBUG_TRANSFER_FLAG;
     }
-    echo_all((uint8_t*)buf_out, MAX_TRANSFER_BYTES);
+    echo_all((uint8_t*)buf_out, count_out);
 }
 
 void webserial_task(bool is_in_mobile_loop)
 {
     if ( web_serial_connected )
-        if ( tud_vendor_available() )
-            handle_input_data(is_in_mobile_loop);
+        if ( tud_vendor_available() ) {
+            uint8_t buf_in[MAX_TRANSFER_BYTES*2];
+            uint32_t count = tud_vendor_read((uint8_t*)buf_in, sizeof(buf_in));
+            handle_input_data(is_in_mobile_loop, buf_in, count);
+        }
 }
 
 
@@ -298,8 +300,11 @@ void cdc_task(bool is_in_mobile_loop)
 {
     if ( tud_cdc_connected() )
     // connected and there are data available
-        if ( tud_cdc_available() )
-            handle_input_data(is_in_mobile_loop);
+        if ( tud_cdc_available() ) {
+            uint8_t buf_in[MAX_TRANSFER_BYTES*2];
+            uint32_t count = tud_cdc_read((uint8_t*)buf_in, sizeof(buf_in));
+            handle_input_data(is_in_mobile_loop, buf_in, count);
+        }
 }
 
 // Invoked when cdc when line state changed e.g connected/disconnected
