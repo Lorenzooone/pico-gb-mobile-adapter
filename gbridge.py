@@ -181,7 +181,7 @@ class GBridgeCommand:
             str_out += str(int.from_bytes(self.data[1 + (i * size_entry): 1 + ((i + 1) * size_entry)], byteorder='little')) + "\n"
         return str_out
 
-    def save_x_size(self, size_entry):
+    def save_x_size(self, save_requests, size_entry):
         str_out = self.prepare_str_out(size_entry)
         with open(save_requests[self.upper_cmd][self.data[0]], "w") as f:
             f.write(str_out)
@@ -219,13 +219,13 @@ class GBridgeCommand:
                 print("Saved to: " + save_requests[self.upper_cmd][self.data[0]])
                 save_requests[self.upper_cmd][self.data[0]] = ""
             if self.data[0] in uint8_t_saves[self.upper_cmd]:
-                self.save_x_size(1)
+                self.save_x_size(save_requests, 1)
             if self.data[0] in uint16_t_saves[self.upper_cmd]:
-                self.save_x_size(2)
+                self.save_x_size(save_requests, 2)
             if self.data[0] in uint32_t_saves[self.upper_cmd]:
-                self.save_x_size(4)
+                self.save_x_size(save_requests, 4)
             if self.data[0] in uint64_t_saves[self.upper_cmd]:
-                self.save_x_size(8)
+                self.save_x_size(save_requests, 8)
     
     def prepare_hex_list_str(values):
         string_out = "["
