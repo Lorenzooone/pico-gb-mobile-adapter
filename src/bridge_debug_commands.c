@@ -2,6 +2,7 @@
 #include <string.h>
 #include <mobile.h>
 #include "gbridge.h"
+#include "device_config.h"
 #include "pico_mobile_adapter.h"
 #include "bridge_debug_commands.h"
 #include "save_load_config.h"

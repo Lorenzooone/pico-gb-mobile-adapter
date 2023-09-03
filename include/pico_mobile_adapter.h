@@ -5,17 +5,7 @@
 #include "time_defs.h"
 #include "upkeep_callback.h"
 
-// Output to PC, change these three defines for your implementation/version
-// IMPLEMENTATION-SPECIFIC
-#define IMPLEMENTATION_NAME "PICO-USB-SM"
-#define IMPLEMENTATION_VERSION "1.0.0"
-#define LIBMOBILE_VERSION "1.0.0"
-
 #define EEPROM_SIZE MOBILE_CONFIG_SIZE
-
-#define SOCK_NONE -1
-#define SOCK_TCP 1
-#define SOCK_UDP 2
 
 #define DEBUG_PRINT_FUNCTION(x) impl_debug_log(NULL, x)
 

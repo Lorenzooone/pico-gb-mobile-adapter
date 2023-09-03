@@ -1,11 +1,8 @@
 #include "gbridge_timeout.h"
 #include "time_defs.h"
 
-// Implementation specific defines
-// IMPLEMENTATION-SPECIFIC
 #define DEFAULT_MAX_RETRIES 3
 #define DEFAULT_TIMEOUT 5 // Seconds, for this implementation
-#define CURR_BOARD_TIMEOUT_RESOLUTION RESOLUTION_MICRO_SECONDS
 
 static timeout_time_t timeout_time = SEC(DEFAULT_TIMEOUT);
 static num_retries_t num_retries = DEFAULT_MAX_RETRIES;
@@ -21,15 +18,15 @@ timeout_time_t get_timeout_time(void) {
     return timeout_time;
 }
 
-enum timeout_resolution get_timeout_resolution(void) {
-    return CURR_BOARD_TIMEOUT_RESOLUTION;
+enum time_resolution get_timeout_resolution(void) {
+    return CURR_BOARD_TIME_RESOLUTION;
 }
 
 void set_num_retries(num_retries_t new_num_retries) {
     num_retries = new_num_retries;
 }
 
-void set_timeout_time(timeout_time_t new_timeout_time, enum timeout_resolution new_timeout_resolution) {
+void set_timeout_time(timeout_time_t new_timeout_time, enum time_resolution new_timeout_resolution) {
     switch(new_timeout_resolution) {
         case RESOLUTION_SECONDS:
             new_timeout_time = SEC(new_timeout_time);

@@ -26,11 +26,6 @@ static bool impl_time_check_ms(void *user, unsigned timer, unsigned ms);
 static void impl_update_number(void *user, enum mobile_number type, const char *number);
 static void set_mobile_callbacks(struct mobile_user* mobile);
 
-#define DNS_DEFAULT_IP 127, 0, 0, 1
-#define DNS_DEFAULT_PORT 53
-const char default_dns_ip[] = {DNS_DEFAULT_IP};
-const uint16_t default_dns_port = DNS_DEFAULT_PORT;
-
 //Control Flash Write
 bool haveConfigToWrite = false;
 static user_time_t time_last_config_edit = 0;
