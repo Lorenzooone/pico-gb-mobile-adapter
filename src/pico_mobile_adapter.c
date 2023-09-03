@@ -5,14 +5,14 @@
 #include <mobile.h>
 #include "pico_mobile_adapter.h"
 #include "socket_impl.h"
-#include "io_buffer.h"
-#include "gbridge.h"
 #include "linkcable.h"
 #include "save_load_config.h"
 #include "useful_qualifiers.h"
-#include "utils.h"
 #include "time_defs.h"
 #include "sync.h"
+#include "upkeep_callback.h"
+// Used exclusively for debug
+#include "gbridge.h"
 
 #define CONFIG_LAST_EDIT_TIMEOUT SEC(1)
 #define DEBUG_MAX_SIZE 0x200
@@ -36,7 +36,6 @@ bool haveConfigToWrite = false;
 static user_time_t time_last_config_edit = 0;
 
 struct mobile_user *mobile = NULL;
-upkeep_callback saved_callback = NULL;
 sync_t ack_disable;
 bool isLinkCable32 = false;
 
@@ -46,11 +45,6 @@ void init_disable_handler(void) {
 
 void TIME_SENSITIVE(handle_disable_request)(void) {   
     ack_sync_req(&ack_disable);
-}
-
-void call_upkeep_callback(void) {
-    if(saved_callback)
-        saved_callback(true);
 }
 
 void TIME_SENSITIVE(link_cable_handler)(void) {
@@ -64,10 +58,10 @@ void TIME_SENSITIVE(link_cable_handler)(void) {
     linkcable_send(data);
 }
 
-void pico_mobile_init(upkeep_callback callback) {
+void pico_mobile_init(upkeep_callback_t callback) {
     //Libmobile Variables
     mobile = malloc(sizeof(struct mobile_user));
-    saved_callback = callback;
+    set_upkeep_callback(callback);
 
     memset(mobile->config_eeprom,0x00,sizeof(mobile->config_eeprom));
 #ifdef CAN_SAVE

@@ -1,5 +1,5 @@
 #include "io_buffer.h"
-#include "pico_mobile_adapter.h"
+#include "upkeep_callback.h"
 #include "gbridge.h"
 #include "gbridge_timeout.h"
 #include "utils.h"

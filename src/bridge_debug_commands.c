@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 #include <mobile.h>
-#include "io_buffer.h"
 #include "gbridge.h"
 #include "pico_mobile_adapter.h"
 #include "bridge_debug_commands.h"

@@ -8,10 +8,14 @@
 #include <stdlib.h>
 #include <string.h>
 #include "linkcable.h"
-#include "gbridge.h"
 #include "useful_qualifiers.h"
-#include "utils.h"
 #include "sync.h"
+// Used exclusively for debug
+#include "gbridge.h"
+
+// This file is very implementation-specific.
+// Hopefully, the header is generic enough as is for the rest of the code,
+// but you may need to change it.
 
 // Implementation-specific defines
 #define STACKSMASHING

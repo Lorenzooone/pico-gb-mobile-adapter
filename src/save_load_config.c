@@ -5,11 +5,8 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <mobile.h>
 #include "hardware/sync.h"
 #include "pico_mobile_adapter.h"
-
-#include "pico/time.h"
 
 #define KEY_STR_SIZE 16
 #define KEY_CONFIG "CONFIG"
@@ -21,9 +18,6 @@
 #define FLASH_PAGE_NEEDED ((FINAL_FLASH_MIN_SIZE + FLASH_PAGE_SIZE - 1) / FLASH_PAGE_SIZE)
 #define FLASH_DATA_SIZE (FLASH_PAGE_SIZE * FLASH_PAGE_NEEDED)
 #define FLASH_TARGET_OFFSET (FLASH_DATA_SIZE * 1024)
-
-volatile uint64_t time_us_now = 0;
-uint64_t last_readable = 0;
 
 const uint8_t *flash_target_contents = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET);
 

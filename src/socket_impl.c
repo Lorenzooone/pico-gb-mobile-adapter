@@ -1,8 +1,6 @@
 #include <mobile.h>
 
 #include "socket_impl.h"
-#include "pico_mobile_adapter.h"
-#include "linkcable.h"
 #include "gbridge.h"
 #include "utils.h"
 
