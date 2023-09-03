@@ -1,21 +1,13 @@
-#include "pico/stdlib.h"
-#include "time.h"
-#include "pico/bootrom.h"
-#include "hardware/timer.h"
-#include "hardware/gpio.h"
-#include "hardware/irq.h"
-#include "hardware/resets.h"
-#include "hardware/pio.h"
+#include "pico/multicore.h"
+#include "bsp/board.h"
 #include "tusb.h"
 #include "usb_descriptors.h"
-#include "bsp/board.h"
+
 #include "pico_mobile_adapter.h"
 #include "io_buffer.h"
 #include "bridge_debug_commands.h"
-#include "pico/multicore.h"
 #include "useful_qualifiers.h"
 #include "sync.h"
-
 #include "linkcable.h"
 
 //--------------------------------------------------------------------+
@@ -75,7 +67,7 @@ void webserial_task(bool is_in_mobile_loop);
 void loop_upkeep_functions(bool is_in_mobile_loop);
 
 void TIME_SENSITIVE(core_1_main)(void) {
-    linkcable_init(link_cable_ISR);
+    linkcable_init(link_cable_handler);
     while(1) {
         handle_disable_request();
         handle_time_request();
@@ -104,7 +96,7 @@ int main(void) {
     tusb_init();
 
 #ifndef USE_CORE_1_AS_WELL
-    linkcable_init(link_cable_ISR);
+    linkcable_init(link_cable_handler);
 #endif
     pico_mobile_init(loop_upkeep_functions);
 

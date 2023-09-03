@@ -120,3 +120,18 @@ void set_data_in(uint8_t* buffer, uint32_t size) {
     _set_data_in(buffer, size, &b_in);
 }
 
+static void _reset_data(struct io_buffer* b) {
+    b->pos_inside = b->pos_outside;
+}
+
+void reset_data_out(void) {
+    _reset_data(&b_out);
+}
+
+void reset_data_out_debug(void) {
+    _reset_data(&b_debug_out);
+}
+
+void reset_data_in(void) {
+    _reset_data(&b_in);
+}

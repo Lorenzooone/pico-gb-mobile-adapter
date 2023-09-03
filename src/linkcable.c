@@ -1,18 +1,32 @@
+// Implementation-specific includes
+#include "hardware/pio.h"
+#include "hardware/irq.h"
+#include "time_defs.h"
+
+// Regular includes
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
-
-#include "hardware/pio.h"
-#include "hardware/irq.h"
-#include "hardware/timer.h"
-
 #include "linkcable.h"
 #include "gbridge.h"
 #include "useful_qualifiers.h"
 #include "utils.h"
 #include "sync.h"
 
-//#define FAST_ALIGNMENT
+// Implementation-specific defines
+#define STACKSMASHING
+#define LINKCABLE_PIO       pio0
+#define LINKCABLE_SM        0
+#define LINKCABLE_BITS      8
+#define LINKCABLE_BITS_FULL 32
+#define CABLE_PINS_START    0
+
+// Regular defines
+#define LINKCABLE_CAN_DISABLE_TIMEOUT SEC(1)
+
+// Debug defines to check the linkcable's status.
+// If you activate DEBUG_TIMEFRAMES, also comment in the irq1 line
+// in linkcable_sm.pio!
 //#define DEBUG_TIMEFRAMES
 //#define LOG_DIRECT_SEND_RECV
 
@@ -31,7 +45,7 @@ typedef uint16_t timeframes_t;
 typedef uint8_t log_t;
 
 static void debug_store_timeframe(timeframes_t *timeframes, uint32_t buffer_pos, uint64_t value);
-static uint64_t get_last_transfer_time(void);
+static user_time_t get_last_transfer_time(void);
 
 #ifdef DEBUG_TIMEFRAMES
 timeframes_t timeframes_across[TIMEFRAMES_BUFFER_SIZE];
@@ -46,14 +60,14 @@ log_t log_linkcable_buffer_in[LOG_BUFFER_SIZE];
 uint32_t log_buffer_pos = 0;
 #endif
 
-static irq_handler_t linkcable_irq_handler = NULL;
+static linkcable_handler_t linkcable_irq_handler = NULL;
 static uint32_t linkcable_pio_initial_pc = 0;
 uint8_t saved_bits = DEFAULT_SAVED_BITS;
-static uint64_t saved_time = 0;
+static user_time_t saved_time = 0;
 bool is_enabled = false;
 bool is_linkcable_ready = false;
-uint64_t last_transfer_time = 0;
-uint64_t shared_last_transfer_time = 0;
+user_time_t last_transfer_time = 0;
+user_time_t shared_last_transfer_time = 0;
 sync_t ack_time_request;
 
 void init_time_request_handler(void) {
@@ -67,39 +81,25 @@ void TIME_SENSITIVE(handle_time_request)(void) {
     }
 }
 
-static uint64_t get_last_transfer_time(void) {
+static user_time_t get_last_transfer_time(void) {
     if(wait_for_sync(&ack_time_request))
         return shared_last_transfer_time;
     return last_transfer_time;
 }
 
 static void TIME_SENSITIVE(linkcable_isr)(void) {
-    uint64_t curr_time = time_us_64();
+    user_time_t curr_time = TIME_FUNCTION;
 #ifdef DEBUG_TIMEFRAMES
     debug_store_timeframe(timeframes_across, timeframes_buffer_pos, curr_time - last_transfer_time);
     debug_store_timeframe(timeframes_transfer, timeframes_buffer_pos, curr_time - saved_time);
 #endif
-#ifdef FAST_ALIGNMENT
-    uint64_t dest_time = curr_time + ((curr_time - saved_time + saved_bits - 1) / saved_bits);
-#endif
     last_transfer_time = curr_time;
     if (linkcable_irq_handler) linkcable_irq_handler();
     if (pio_interrupt_get(LINKCABLE_PIO, 0)) pio_interrupt_clear(LINKCABLE_PIO, 0);
-#if defined(FAST_ALIGNMENT) || defined(DEBUG_TIMEFRAMES)
-    curr_time = time_us_64();
-#endif
 #ifdef DEBUG_TIMEFRAMES
+    curr_time = TIME_FUNCTION;
     debug_store_timeframe(timeframes_interrupt, timeframes_buffer_pos, curr_time - last_transfer_time);
     timeframes_buffer_pos = (timeframes_buffer_pos + 1) % TIMEFRAMES_BUFFER_SIZE;
-#endif
-#ifdef FAST_ALIGNMENT
-    if(dest_time > curr_time) {
-        if((dest_time - curr_time) < MSEC(100))
-            busy_wait_us(dest_time - curr_time);
-    }
-#ifdef STACKSMASHING
-    linkcable_activate(LINKCABLE_PIO, LINKCABLE_SM);
-#endif
 #endif
 }
 
@@ -113,19 +113,19 @@ bool linkcable_is_enabled(void) {
     return is_enabled;
 }
 
-bool can_disable_linkcable_irq(void) {
+bool can_disable_linkcable_handler(void) {
     if(!is_enabled)
         return true;
-    uint64_t old_time = get_last_transfer_time();
-    uint64_t curr_time = time_us_64();
-    if((curr_time - old_time) >= SEC(1))
+    user_time_t old_time = get_last_transfer_time();
+    user_time_t curr_time = TIME_FUNCTION;
+    if((curr_time - old_time) >= LINKCABLE_CAN_DISABLE_TIMEOUT)
         return true;
     return false;
 }
 
-#if defined(FAST_ALIGNMENT) || defined(DEBUG_TIMEFRAMES)
+#ifdef DEBUG_TIMEFRAMES
 static void TIME_SENSITIVE(linkcable_time_isr)(void) {
-    saved_time = time_us_64();
+    saved_time = TIME_FUNCTION;
     if (pio_interrupt_get(LINKCABLE_PIO, 1)) pio_interrupt_clear(LINKCABLE_PIO, 1);
 }
 #endif
@@ -180,7 +180,7 @@ void TIME_SENSITIVE(linkcable_send)(uint32_t data) {
     pio_sm_put(LINKCABLE_PIO, LINKCABLE_SM, sendval);
 }
 
-void TIME_SENSITIVE(clean_linkcable_fifos)(void) {
+void TIME_SENSITIVE(linkcable_flush)(void) {
     pio_sm_clear_fifos(LINKCABLE_PIO, LINKCABLE_SM);
 }
 
@@ -211,7 +211,7 @@ void linkcable_set_is_32(bool is_32) {
     else
         saved_bits = 8;
 #ifdef STACKSMASHING
-    linkcable_select_mode(LINKCABLE_PIO, LINKCABLE_SM, saved_bits);
+    linkcable_sm_select_mode(LINKCABLE_PIO, LINKCABLE_SM, saved_bits);
 #endif
 }
 
@@ -231,7 +231,7 @@ void linkcable_init(irq_handler_t onDataReceive) {
         irq_set_exclusive_handler(PIO0_IRQ_0, linkcable_isr);
         irq_set_enabled(PIO0_IRQ_0, true);
     }
-#if defined(FAST_ALIGNMENT) || defined(DEBUG_TIMEFRAMES)
+#ifdef DEBUG_TIMEFRAMES
     pio_set_irq1_source_enabled(LINKCABLE_PIO, pis_interrupt1, true);
     irq_set_exclusive_handler(PIO0_IRQ_1, linkcable_time_isr);
     irq_set_enabled(PIO0_IRQ_1, true);

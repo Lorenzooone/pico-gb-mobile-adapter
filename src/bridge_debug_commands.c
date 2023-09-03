@@ -5,7 +5,7 @@
 #include "gbridge.h"
 #include "pico_mobile_adapter.h"
 #include "bridge_debug_commands.h"
-#include "flash_eeprom.h"
+#include "save_load_config.h"
 #include "utils.h"
 
 #define MAX_DEBUG_COMMAND_SIZE 0x3F
@@ -77,8 +77,8 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
     switch(cmd) {
         case SEND_EEPROM_CMD:
             data_out[0] = CMD_DEBUG_INFO_CFG;
-#ifdef USE_FLASH
-            ReadFlashConfig(data_out + 1, EEPROM_SIZE);
+#ifdef CAN_SAVE
+            ReadConfig(data_out + 1, EEPROM_SIZE);
             debug_send(data_out, EEPROM_SIZE + 1, GBRIDGE_CMD_DEBUG_INFO);
 #else
             if(mobile->started)
@@ -92,7 +92,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             flag = 0;
             if(mobile->started)
                 flag |= 1;
-#ifdef USE_FLASH
+#ifdef CAN_SAVE
             flag |= 2;
             if(mobile->automatic_save)
                 flag |= 4;
@@ -166,14 +166,14 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
         case SET_SAVE_STYLE_CMD:
             if(size < 1)
                 return;
-#ifdef USE_FLASH
+#ifdef CAN_SAVE
             mobile->automatic_save = data[0];
             debug_send_ack(cmd);
 #endif
 
             break;
         case FORCE_SAVE_CMD:
-#ifdef USE_FLASH
+#ifdef CAN_SAVE
             mobile->force_save = true;
             debug_send_ack(cmd);
 #endif

@@ -3,10 +3,6 @@
 
 #include <mobile.h>
 
-#define MUSEC(x) (x)
-#define MSEC(x) (MUSEC(x) * 1000)
-#define SEC(x) (MSEC(x) * 1000)
-
 uint16_t calc_checksum(const uint8_t* buffer, uint32_t size);
 void set_checksum(const uint8_t* buffer, uint32_t size, uint8_t* checksum_buffer);
 bool check_checksum(const uint8_t* buffer, uint32_t size, const uint8_t* checksum_buffer);

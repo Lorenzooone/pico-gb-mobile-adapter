@@ -15,5 +15,8 @@ uint32_t get_data_in(void);
 void set_data_in(uint8_t* buffer, uint32_t size);
 uint32_t available_data_out(void);
 uint32_t available_data_out_debug(void);
+void reset_data_out(void);
+void reset_data_out_debug(void);
+void reset_data_in(void);
 
 #endif /* IO_BUFFER_H_ */

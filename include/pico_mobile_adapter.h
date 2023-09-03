@@ -2,10 +2,13 @@
 #define PICO_MOBILE_ADAPTER_H_
 
 #include <mobile.h>
+#include "time_defs.h"
 
+// Output to PC, change these three defines for your implementation/version
+// IMPLEMENTATION-SPECIFIC
 #define IMPLEMENTATION_NAME "PICO-USB-SM"
-#define LIBMOBILE_VERSION "1.0.0"
 #define IMPLEMENTATION_VERSION "1.0.0"
+#define LIBMOBILE_VERSION "1.0.0"
 
 #define EEPROM_SIZE MOBILE_CONFIG_SIZE
 
@@ -19,7 +22,7 @@ typedef void (*upkeep_callback) (bool);
 
 struct mobile_user {
     struct mobile_adapter *adapter;
-    uint64_t clock[MOBILE_MAX_TIMERS];
+    user_time_t clock[MOBILE_MAX_TIMERS];
     uint8_t config_eeprom[EEPROM_SIZE];
     char number_user[MOBILE_MAX_NUMBER_SIZE + 1];
     char number_peer[MOBILE_MAX_NUMBER_SIZE + 1];
@@ -33,7 +36,7 @@ void handle_disable_request(void);
 
 struct mobile_user* get_mobile_user(void);
 void call_upkeep_callback(void);
-void link_cable_ISR(void);
+void link_cable_handler(void);
 void impl_debug_log(void *user, const char *line);
 bool impl_config_write(void *user, const void *src, const uintptr_t offset, const size_t size);
 

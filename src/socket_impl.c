@@ -22,7 +22,8 @@ bool impl_sock_open(void *user, unsigned conn, enum mobile_socktype type, enum m
     buffer[4] = (bindport >> 8) & 0xFF;
     buffer[5] = bindport & 0xFF;
     
-    send_x_bytes(buffer, 6, true, true, true);
+    if(!send_x_bytes(buffer, 6, true, true, true))
+        return false;
     
     if(!get_x_bytes(buffer, 2, true, true, BUF_SIZE, &result_size))
         return false;
@@ -44,7 +45,8 @@ void impl_sock_close(void *user, unsigned conn)
     buffer[0] = cmd;
     buffer[1] = conn;
     
-    send_x_bytes(buffer, 2, true, true, true);
+    if(!send_x_bytes(buffer, 2, true, true, true))
+        return;
     
     if(!get_x_bytes(buffer, 1, true, true, BUF_SIZE, &result_size))
         return;
@@ -65,7 +67,8 @@ int impl_sock_connect(void* user, unsigned conn, const struct mobile_addr *addr)
     buffer[1] = conn;
     unsigned addrlen = address_write(addr, buffer + 2);
     
-    send_x_bytes(buffer, addrlen + 2, true, true, true);
+    if(!send_x_bytes(buffer, addrlen + 2, true, true, true))
+        return -1;
 
     if(!get_x_bytes(buffer, 2, true, true, BUF_SIZE, &result_size))
         return -1;
@@ -87,7 +90,8 @@ bool impl_sock_listen(void* user, unsigned conn)
     buffer[0] = cmd;
     buffer[1] = conn;
 
-    send_x_bytes(buffer, 2, true, true, true);
+    if(!send_x_bytes(buffer, 2, true, true, true))
+        return false;
 
     if(!get_x_bytes(buffer, 2, true, true, BUF_SIZE, &result_size))
         return false;
@@ -109,7 +113,8 @@ bool impl_sock_accept(void* user, unsigned conn)
     buffer[0] = cmd;
     buffer[1] = conn;
 
-    send_x_bytes(buffer, 2, true, true, true);
+    if(!send_x_bytes(buffer, 2, true, true, true))
+        return false;
 
     if(!get_x_bytes(buffer, 2, true, true, BUF_SIZE, &result_size))
         return false;
@@ -132,9 +137,11 @@ int impl_sock_send(void* user, unsigned conn, const void *data, const unsigned s
     buffer[1] = conn;
     unsigned addrlen = address_write(addr, buffer + 2);
     
-    send_x_bytes(buffer, addrlen + 2, true, true, true);
+    if(!send_x_bytes(buffer, addrlen + 2, true, true, true))
+        return -1;
 
-    send_x_bytes(data, size, true, true, false);
+    if(!send_x_bytes(data, size, true, true, false))
+        return -1;
 
     if(!get_x_bytes(buffer, 3, true, true, BUF_SIZE, &result_size))
         return -1;
@@ -161,7 +168,8 @@ int impl_sock_recv(void* user, unsigned conn, void *data, unsigned size, struct 
     if(!data)
         buffer[4] = 0;
 
-    send_x_bytes(buffer, 5, true, true, true);
+    if(!send_x_bytes(buffer, 5, true, true, true))
+        return -1;
 
     if(!get_x_bytes(buffer, 3, true, true, BUF_SIZE, &result_size))
         return -1;

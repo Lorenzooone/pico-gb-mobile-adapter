@@ -3,17 +3,18 @@
 #include <string.h>
 #include <stdio.h>
 #include <mobile.h>
-#include "hardware/timer.h"
 #include "pico_mobile_adapter.h"
 #include "socket_impl.h"
 #include "io_buffer.h"
 #include "gbridge.h"
 #include "linkcable.h"
-#include "flash_eeprom.h"
+#include "save_load_config.h"
 #include "useful_qualifiers.h"
 #include "utils.h"
+#include "time_defs.h"
 #include "sync.h"
 
+#define CONFIG_LAST_EDIT_TIMEOUT SEC(1)
 #define DEBUG_MAX_SIZE 0x200
 
 static void mobile_validate_relay(void);
@@ -32,7 +33,7 @@ const uint16_t default_dns_port = DNS_DEFAULT_PORT;
 
 //Control Flash Write
 bool haveConfigToWrite = false;
-static uint64_t time_last_config_edit = 0;
+static user_time_t time_last_config_edit = 0;
 
 struct mobile_user *mobile = NULL;
 upkeep_callback saved_callback = NULL;
@@ -52,14 +53,14 @@ void call_upkeep_callback(void) {
         saved_callback(true);
 }
 
-void TIME_SENSITIVE(link_cable_ISR)(void) {
+void TIME_SENSITIVE(link_cable_handler)(void) {
     uint32_t data = linkcable_receive();
     if(isLinkCable32){
         data = mobile_transfer_32bit(mobile->adapter, data);
     }else{
         data = mobile_transfer(mobile->adapter, data);
     }
-    clean_linkcable_fifos();
+    linkcable_flush();
     linkcable_send(data);
 }
 
@@ -69,8 +70,8 @@ void pico_mobile_init(upkeep_callback callback) {
     saved_callback = callback;
 
     memset(mobile->config_eeprom,0x00,sizeof(mobile->config_eeprom));
-#ifdef USE_FLASH
-    ReadFlashConfig(mobile->config_eeprom, EEPROM_SIZE);
+#ifdef CAN_SAVE
+    ReadConfig(mobile->config_eeprom, EEPROM_SIZE);
 #endif
     mobile->automatic_save = true;
     mobile->force_save = false;
@@ -116,16 +117,16 @@ void pico_mobile_loop(bool is_same_core) {
     // Mobile Adapter Main Loop
     mobile_loop(mobile->adapter);
 
-#ifdef USE_FLASH
+#ifdef CAN_SAVE
     // Check if there is any new config to write on Flash
     if((haveConfigToWrite && mobile->automatic_save) || mobile->force_save) {
-        bool can_disable_irqs = can_disable_linkcable_irq();
-        uint64_t curr_time_last_config_edit = time_last_config_edit;
-        if(((time_us_64() - curr_time_last_config_edit) > SEC(1)) && can_disable_irqs) {
+        bool can_disable_irqs = can_disable_linkcable_handler();
+        user_time_t curr_time_last_config_edit = time_last_config_edit;
+        if(((TIME_FUNCTION - curr_time_last_config_edit) >= CONFIG_LAST_EDIT_TIMEOUT) && can_disable_irqs) {
             bool prev_state = linkcable_is_enabled();
             if((!is_same_core) && prev_state)
                 linkcable_disable();
-            SaveFlashConfig(mobile->config_eeprom, EEPROM_SIZE);
+            SaveConfig(mobile->config_eeprom, EEPROM_SIZE);
             haveConfigToWrite = false;
             mobile->force_save = false;
             if((!is_same_core) && prev_state)
@@ -159,6 +160,7 @@ void impl_debug_log(void *user, const char *line){
 static void impl_serial_disable(void *user) {
     struct mobile_user *mobile = (struct mobile_user *)user;
     linkcable_disable();
+    // Synchronize if multi-core. Mandatory!!!
     wait_for_sync(&ack_disable);
     print_last_linkcable();
 }
@@ -182,26 +184,29 @@ static bool impl_config_read(void *user, void *dest, const uintptr_t offset, con
 bool impl_config_write(void *user, const void *src, const uintptr_t offset, const size_t size) {
     struct mobile_user *mobile = (struct mobile_user *)user;
     const uint8_t* src_8 = (const uint8_t *)src;
-    for(int i = 0; i < size; i++){
-#ifdef USE_FLASH
+    bool this_edited_config = false;
+    for(int i = 0; i < size; i++) {
+#ifdef CAN_SAVE
         if(mobile->config_eeprom[offset + i] != src_8[i])
-            haveConfigToWrite = true;
+            this_edited_config = true;
 #endif
         mobile->config_eeprom[offset + i] = src_8[i];
     }
-    if(haveConfigToWrite)
-        time_last_config_edit = time_us_64();
+    if(this_edited_config) {
+        haveConfigToWrite = true;
+        time_last_config_edit = TIME_FUNCTION;
+    }
     return true;
 }
 
 static void impl_time_latch(void *user, unsigned timer) {
     struct mobile_user *mobile = (struct mobile_user *)user;
-    mobile->clock[timer] = time_us_64();
+    mobile->clock[timer] = TIME_FUNCTION;
 }
 
 static bool impl_time_check_ms(void *user, unsigned timer, unsigned ms) {
     struct mobile_user *mobile = (struct mobile_user *)user;
-    return ((time_us_64() - mobile->clock[timer]) >= MSEC(ms));
+    return ((TIME_FUNCTION - mobile->clock[timer]) >= MSEC(ms));
 }
 
 static void impl_update_number(void *user, enum mobile_number type, const char *number){

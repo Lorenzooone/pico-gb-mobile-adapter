@@ -1,4 +1,5 @@
-#include "flash_eeprom.h"
+#include "hardware/flash.h"
+#include "save_load_config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -11,6 +12,7 @@
 #include "pico/time.h"
 
 #define KEY_STR_SIZE 16
+#define KEY_CONFIG "CONFIG"
 #define OFFSET_CONFIG 0
 #define OFFSET_MAGB KEY_STR_SIZE
 
@@ -25,7 +27,7 @@ uint64_t last_readable = 0;
 
 const uint8_t *flash_target_contents = (const uint8_t *) (XIP_BASE + FLASH_TARGET_OFFSET);
 
-void *memmem(const void *l, size_t l_len, const void *s, size_t s_len){
+static void *memmem(const void *l, size_t l_len, const void *s, size_t s_len){
 	register char *cur, *last;
 	const char *cl = (const char *)l;
 	const char *cs = (const char *)s;
@@ -53,7 +55,7 @@ void *memmem(const void *l, size_t l_len, const void *s, size_t s_len){
 }
 
 //512 bytes for the Mobile Adapter GB + Adapter Configs + 16 for "CONFIG", and the rest 
-void FormatFlashConfig(){
+static void FormatFlashConfig(void){
     DEBUG_PRINT_FUNCTION("Erasing target region... ");
     uint32_t irqs = save_and_disable_interrupts();
     flash_range_erase(FLASH_TARGET_OFFSET, FLASH_DATA_SIZE);
@@ -62,7 +64,7 @@ void FormatFlashConfig(){
 }
 
 //Read flash memory and set the configs
-bool ReadFlashConfig(uint8_t * buff, uint32_t size) {
+bool ReadConfig(uint8_t * buff, uint32_t size) {
     if(size > (FLASH_DATA_SIZE - OFFSET_MAGB))
         size = (FLASH_DATA_SIZE - OFFSET_MAGB);
     DEBUG_PRINT_FUNCTION("Reading the target region... ");
@@ -83,7 +85,7 @@ bool ReadFlashConfig(uint8_t * buff, uint32_t size) {
     return true;
 }
 
-void SaveFlashConfig(uint8_t * buff, uint32_t size) {
+void SaveConfig(uint8_t * buff, uint32_t size) {
     if(size > (FLASH_DATA_SIZE - OFFSET_MAGB))
         size = (FLASH_DATA_SIZE - OFFSET_MAGB);
     FormatFlashConfig();
