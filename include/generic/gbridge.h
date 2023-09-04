@@ -1,6 +1,8 @@
 #ifndef _GBRIDGE_H_
 #define _GBRIDGE_H_
 
+#define DEBUG_PRINT_FUNCTION(x) debug_line_log(x)
+
 #define GBRIDGE_HANDSHAKE {0x99, 0x66, 'G', 'B'}
 
 #define GBRIDGE_TIMEOUT_US 1000000
@@ -65,5 +67,6 @@ bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool expecte
 bool send_x_bytes(const uint8_t* buffer, uint32_t size, bool run_callback, bool send_checksum, bool is_data);
 bool debug_send(uint8_t* buffer, uint32_t size, enum gbridge_cmd cmd);
 bool debug_send_ack(uint8_t command);
+void debug_line_log(const char *line);
 
 #endif /* _GBRIDGE_H_ */

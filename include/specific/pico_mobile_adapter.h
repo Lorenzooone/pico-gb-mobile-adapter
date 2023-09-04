@@ -7,8 +7,6 @@
 
 #define EEPROM_SIZE MOBILE_CONFIG_SIZE
 
-#define DEBUG_PRINT_FUNCTION(x) impl_debug_log(NULL, x)
-
 struct mobile_user {
     struct mobile_adapter *adapter;
     user_time_t clock[MOBILE_MAX_TIMERS];
@@ -26,7 +24,6 @@ void handle_disable_request(void);
 struct mobile_user* get_mobile_user(void);
 void call_upkeep_callback(void);
 void link_cable_handler(void);
-void impl_debug_log(void *user, const char *line);
 bool impl_config_write(void *user, const void *src, const uintptr_t offset, const size_t size);
 
 void pico_mobile_init(upkeep_callback_t callback);

@@ -1,8 +1,11 @@
+#include <stdio.h>
 #include "io_buffer.h"
 #include "upkeep_callback.h"
 #include "gbridge.h"
 #include "gbridge_timeout.h"
 #include "utils.h"
+
+#define DEBUG_MAX_SIZE 0x200
 
 static bool get_section(uint8_t* buffer, uint32_t size, bool run_callback, bool is_cmd) {
     uint32_t pos = 0;
@@ -218,3 +221,13 @@ bool debug_send_ack(uint8_t command)
     return _send_x_bytes(&command, 1, GBRIDGE_CMD_DEBUG_ACK, 0, false, true, false, true);
 }
 
+void debug_line_log(const char *line) {
+#ifdef DO_SEND_DEBUG
+    uint8_t debug_buffer[DEBUG_MAX_SIZE];
+    uint32_t printed = snprintf(debug_buffer, DEBUG_MAX_SIZE - 1, "%s\n", line);
+    debug_buffer[printed] = 0;
+    debug_send(debug_buffer, printed + 1, GBRIDGE_CMD_DEBUG_LINE);
+#else
+    (void)line;
+#endif
+}

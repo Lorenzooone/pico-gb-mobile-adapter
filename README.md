@@ -1,29 +1,13 @@
-# Pico GameBoy printer
+# Pico GB Mobile Adapter
 
-<p align="center">
-   <img src="https://github.com/untoxa/pico-gb-printer/blob/main/screenshot.png?raw=true"/><img src="https://github.com/untoxa/pico-gb-printer/blob/main/usage.png?raw=true"/>
-</p>
+USB implementation for the Pico of the [REON libmobile project](https://github.com/REONTeam/libmobile).
 
-Based on the original webserver for the PI Pico repo: https://github.com/maxnet/pico-webserver
+A basic implementation is available for the Stacksmashing board, though changing the used pins should make it possible to use other boards as well.
 
-Webserver example that came with TinyUSB slightly modified to run on a Raspberry Pi Pico.
-Lets the Pico pretend to be a USB Ethernet device. Runs the webinterface at http://192.168.7.1/
+Make and install the firmware onto your pico board. Instructions available below.
 
-Special thanks to Raphael-Boichot, please check this repo: https://github.com/Raphael-Boichot/The-Arduino-SD-Game-Boy-Printer
-
-## Schematics
-
-You will need a Raspberry Pi, 1/2 of the game boy link cable and a four-channel 5v to 3.3v level shifter. Connect parts as shown:
-
-<p align="center">
-  <img src="https://github.com/untoxa/pico-gb-printer/blob/main/schematics.png?raw=true"/>
-</p>
-
-This is the example of the ready-to-use device:
-
-<p align="center">
-  <img src="https://github.com/untoxa/pico-gb-printer/blob/main/device.jpg?raw=true"/>
-</p>
+Once that is done, connect your device to a USB port and launch usb_pico_interface.py, in order to offer an interface to the Pico for the internet.
+Finally, connect the device to a Game Boy using a Link Cable, to emulate the GB Mobile Adapter.
 
 ## Build dependencies
 
@@ -33,7 +17,7 @@ This is the example of the ready-to-use device:
 sudo apt install git build-essential cmake gcc-arm-none-eabi
 ```
 
-Your Linux distribution does need to provide a recent CMake (3.13+).
+Your Linux distribution does need to provide a recent CMake (3.25+).
 If not, compile [CMake from source](https://cmake.org/download/#latest) first.
 
 ### On Windows:
@@ -56,8 +40,9 @@ in the build instructions below.
 ## Build instructions
 
 ```
-git clone --depth 1 https://github.com/untoxa/pico-gb-printer
-cd pico-gb-printer
+git clone https://github.com/Lorenzooone/pico-gb-switch
+cd pico-gb-switch
+git checkout pico_mobile_adapter
 git submodule update --init
 mkdir -p build
 cd build
@@ -65,8 +50,4 @@ cmake ..
 make
 ```
 
-Copy the resulting pico_gb_printer.uf2 file to the Pi Pico mass storage device manually.
-Webserver will be available at http://192.168.7.1/
-
-Content it is serving is in /fs
-If you change any files there, run ./regen-fsdata.sh
+Copy the resulting pico_gb_mobile_adapter.uf2 file to the Pi Pico mass storage device manually.

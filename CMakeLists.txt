@@ -12,13 +12,13 @@ pico_sdk_init()
 set(PICO_TINYUSB_PATH ${PICO_SDK_PATH}/lib/tinyusb)
 set(LIBMOBILE_PATH libmobile)
 
-add_executable(${PROJECT_NAME} src/main.c src/usb_descriptors.c src/linkcable.c src/pico_mobile_adapter.c src/socket_impl.c src/gbridge.c src/io_buffer.c src/save_load_config.c src/bridge_debug_commands.c src/utils.c src/sync.c src/gbridge_timeout.c src/upkeep_callback.c)
+add_executable(${PROJECT_NAME} src/specific/main.c src/specific/usb_descriptors.c src/specific/linkcable.c src/specific/pico_mobile_adapter.c src/generic/socket_impl.c src/generic/gbridge.c src/generic/io_buffer.c src/specific/save_load_config.c src/generic/bridge_debug_commands.c src/generic/utils.c src/generic/sync.c src/generic/gbridge_timeout.c src/generic/upkeep_callback.c)
 add_subdirectory(${LIBMOBILE_PATH})
 
-pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/linkcable.pio)
-pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/linkcable_sm.pio)
+pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/specific/linkcable.pio)
+pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/specific/linkcable_sm.pio)
 
-target_include_directories(${PROJECT_NAME} PRIVATE include ${PICO_TINYUSB_PATH}/src ${PICO_TINYUSB_PATH}/lib/networking ${LIBMOBILE_PATH})
+target_include_directories(${PROJECT_NAME} PRIVATE include/generic include/specific ${PICO_TINYUSB_PATH}/src ${PICO_TINYUSB_PATH}/lib/networking ${LIBMOBILE_PATH})
 target_link_libraries(${PROJECT_NAME} pico_stdlib hardware_pio tinyusb_device tinyusb_board libmobile_static hardware_flash pico_multicore)
 pico_add_extra_outputs(${PROJECT_NAME})
 target_compile_definitions(${PROJECT_NAME} PRIVATE PICO_ENTER_USB_BOOT_ON_EXIT=1)

@@ -7,6 +7,7 @@
 
 #include "hardware/sync.h"
 #include "pico_mobile_adapter.h"
+#include "gbridge.h"
 
 #define KEY_STR_SIZE 16
 #define KEY_CONFIG "CONFIG"

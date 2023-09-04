@@ -1,7 +1,6 @@
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
 #include <mobile.h>
 #include "pico_mobile_adapter.h"
 #include "socket_impl.h"
@@ -14,10 +13,13 @@
 // Used exclusively for debug
 #include "gbridge.h"
 
+// This file is mostly generic, but different implementations
+// may use different data structures...
+
 #define CONFIG_LAST_EDIT_TIMEOUT SEC(1)
-#define DEBUG_MAX_SIZE 0x200
 
 static void mobile_validate_relay(void);
+static void impl_debug_log(void *user, const char *line);
 static void impl_serial_disable(void *user);
 static void impl_serial_enable(void *user, bool mode_32bit);
 static bool impl_config_read(void *user, void *dest, const uintptr_t offset, const size_t size);
@@ -134,16 +136,9 @@ struct mobile_user* get_mobile_user(void) {
     return mobile;
 }
 
-void impl_debug_log(void *user, const char *line){
+static void impl_debug_log(void *user, const char *line) {
     (void)user;
-#ifdef DO_SEND_DEBUG
-    uint8_t debug_buffer[DEBUG_MAX_SIZE];
-    uint32_t printed = snprintf(debug_buffer, DEBUG_MAX_SIZE - 1, "%s\n", line);
-    debug_buffer[DEBUG_MAX_SIZE - 1] = 0;
-    debug_send(debug_buffer, printed + 1, GBRIDGE_CMD_DEBUG_LINE);
-#else
-    (void)line;
-#endif
+    DEBUG_PRINT_FUNCTION(line);
 }
 
 static void impl_serial_disable(void *user) {
