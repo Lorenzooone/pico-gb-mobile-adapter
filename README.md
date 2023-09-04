@@ -42,7 +42,7 @@ in the build instructions below.
 ```
 git clone https://github.com/Lorenzooone/pico-gb-switch
 cd pico-gb-switch
-git checkout pico_mobile_adapter
+git checkout main
 git submodule update --init
 mkdir -p build
 cd build
