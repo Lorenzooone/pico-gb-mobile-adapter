@@ -8,20 +8,28 @@ import os
 
 import threading
 
-dev = None
-reattach = False
-serial_port = None
-epIn = None
-epOut = None
-p = None
-max_usb_timeout = 5
+# Default transfer status class.
+# If wait is set, the transfers are temporarily stopped.
+# If end is set, the transfers are ended.
+class TransferStatus:
+    def __init__(self):
+        self.wait = False
+        self.end = False
 
-VID = 0xcafe
-PID = 0x4011
+# Default user output class.
+# set_out is called, to "print" the data to the user.
+# A program can intercept this, though.
+class UserOutput:
+    def __init__(self):
+        pass
 
-def kill_function():
-    os.kill(os.getpid(), signal.SIGINT)
+    def set_out(self, string, end='\n'):
+        print(string, end=end)
 
+# Default user input class.
+# get_input is called, to "get" the user's input.
+# A program can use this interface, though.
+# Commands are interpreted by interpret_input_keyboard.
 class KeyboardThread(threading.Thread):
 
     def __init__(self):
@@ -47,18 +55,20 @@ class KeyboardThread(threading.Thread):
 
 class SocketThread(threading.Thread):
 
-    def __init__(self):
+    def __init__(self, user_output):
         super(SocketThread, self).__init__()
         self.daemon = True
         self.start_processing = False
         self.done_processing = False
         self.bridge = GBridge()
         self.bridge_debug = GBridge()
-        self.bridge_sockets = GBridgeSocket()
+        self.bridge_sockets = GBridgeSocket(user_output)
         self.lock_in = threading.Lock()
         self.lock_out = threading.Lock()
         self.lock_in.acquire()
         self.lock_out.acquire()
+        self.end_run = False
+        self.user_output = user_output
         self.start()
 
     def run(self):
@@ -69,6 +79,9 @@ class SocketThread(threading.Thread):
 
         while True:
             self.lock_in.acquire()
+
+            if self.end_run:
+                break
 
             send_list = []
             read_data = self.data
@@ -89,15 +102,15 @@ class SocketThread(threading.Thread):
 
                 curr_cmd = True
                 if print_data_in and (not is_debug):
-                    print("IN: " + str(bytes))
+                    self.user_output.set_out("IN: " + str(bytes))
                 while curr_cmd is not None:
                     curr_cmd = curr_bridge.init_cmd(bytes)
                     if(curr_cmd is not None):
                         bytes = bytes[curr_cmd.total_len - curr_cmd.old_len:]
-                        curr_cmd.print_answer(save_requests, ack_requests)
+                        curr_cmd.print_answer(save_requests, ack_requests, self.user_output)
                         if debug_print:
-                            curr_cmd.do_print()
-                        curr_cmd.check_save(save_requests)
+                            curr_cmd.do_print(self.user_output)
+                        curr_cmd.check_save(save_requests, self.user_output)
                         if(curr_cmd.response_cmd is not None):
                             send_list += [curr_cmd.response_cmd]
                             if(curr_cmd.process(self.bridge_sockets)):
@@ -120,6 +133,11 @@ class SocketThread(threading.Thread):
 
         return self.out_data
 
+    def end_processing(self):
+        self.end_run = True
+
+        self.lock_in.release()
+
 def add_result_debug_commands(actual_cmd, data, debug_send_list, ack_requests):
     result, ack_wanted = GBridgeDebugCommands.load_command(actual_cmd, data)
     debug_send_list += result
@@ -127,6 +145,8 @@ def add_result_debug_commands(actual_cmd, data, debug_send_list, ack_requests):
     
     
 def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requests):
+    
+    RELAY_TOKEN_SIZE = 0x10
 
     basic_commands = {
         "GET EEPROM": GBridgeDebugCommands.SEND_EEPROM_CMD,
@@ -156,8 +176,6 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
     token_commands = {
         "SET RELAY_TOKEN": GBridgeDebugCommands.UPDATE_RELAY_TOKEN_CMD
     }
-    
-    RELAY_TOKEN_SIZE = 0x10
     
     address_commands = {
         "SET DNS_1": GBridgeDebugCommands.UPDATE_DNS1_CMD,
@@ -262,7 +280,7 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
                 elif tokens[2].upper().strip() == "NULL":
                     add_result_debug_commands(token_commands[command], [0], debug_send_list, ack_requests)
 
-def prepare_out_func(analyzed_list, is_debug_cmd):
+def prepare_out_func(analyzed_list, is_debug_cmd, user_output):
     DEBUG_CMD_TRANSFER_FLAG = 0xC0
     print_data_out = False
     limit = 0x40 - 1
@@ -282,27 +300,30 @@ def prepare_out_func(analyzed_list, is_debug_cmd):
         for i in range(num_elems):
             out_buf += analyzed_list[i].to_bytes(1, byteorder='little')
         if print_data_out:
-            print("OUT: " + str(out_buf[1:]))
+            user_output.set_out("OUT: " + str(out_buf[1:]))
     return out_buf, num_elems
 
-def transfer_func(sender, receiver, list_sender, raw_receiver):
-    key_input = KeyboardThread()
-    out_data_preparer = SocketThread()
+# Main function, gets the four basic USB connection send/recv functions, the way to get the user input class,
+# the transfer state's class and the user output class.
+def transfer_func(sender, receiver, list_sender, raw_receiver, pc_commands, transfer_state, user_output):
+    out_data_preparer = SocketThread(user_output)
     send_list = []
     debug_send_list = []
     save_requests = dict()
     ack_requests = dict()
-    while(1):
-        interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requests)
+    while not transfer_state.end:
+        while transfer_state.wait:
+            pass
+        interpret_input_keyboard(pc_commands, debug_send_list, save_requests, ack_requests)
 
         if len(send_list) == 0:
             if len(debug_send_list) > 0:
-                out_buf, num_elems = prepare_out_func(debug_send_list[0], True)
+                out_buf, num_elems = prepare_out_func(debug_send_list[0], True, user_output)
                 debug_send_list = debug_send_list[1:]
             else:
-                out_buf, num_elems = prepare_out_func([], True)
+                out_buf, num_elems = prepare_out_func([], True, user_output)
         else:
-            out_buf, num_elems = prepare_out_func(send_list, False)
+            out_buf, num_elems = prepare_out_func(send_list, False, user_output)
             send_list = send_list[num_elems:]
         list_sender(out_buf, chunk_size = len(out_buf))
 
@@ -310,101 +331,115 @@ def transfer_func(sender, receiver, list_sender, raw_receiver):
         send_list += out_data_preparer.get_processed()
         sleep(0.01)
 
-# Code dependant on this connection method
-def sendByte(byte_to_send, num_bytes):
-    epOut.write(byte_to_send.to_bytes(num_bytes, byteorder='big'), timeout=max_usb_timeout * 1000)
-    return
+    out_data_preparer.end_processing()
 
-# Code dependant on this connection method
-def sendList(data, chunk_size=8):
-    num_iters = int(len(data)/chunk_size)
-    for i in range(num_iters):
-        epOut.write(data[i*chunk_size:(i+1)*chunk_size], timeout=max_usb_timeout * 1000)
-    #print(num_iters*chunk_size)
-    #print(len(data))
-    if (num_iters*chunk_size) != len(data):
-        epOut.write(data[num_iters*chunk_size:], timeout=max_usb_timeout * 1000)
+class LibUSBSendRecv:
+    def __init__(self, epOut, epIn, dev, reattach, max_usb_timeout):
+        self.epOut = epOut
+        self.epIn = epIn
+        self.dev = dev
+        self.reattach = reattach
+        self.max_usb_timeout = max_usb_timeout
 
-def receiveByte(num_bytes):
-    recv = int.from_bytes(epIn.read(num_bytes, timeout=max_usb_timeout * 1000), byteorder='big')
-    return recv
+    # Code dependant on this connection method
+    def sendByte(self, byte_to_send, num_bytes):
+        self.epOut.write(byte_to_send.to_bytes(num_bytes, byteorder='big'), timeout=self.max_usb_timeout * 1000)
+        return
 
-def receiveByte_raw(num_bytes):
-    return epIn.read(num_bytes, timeout=max_usb_timeout * 1000)
+    # Code dependant on this connection method
+    def sendList(self, data, chunk_size=8):
+        num_iters = int(len(data)/chunk_size)
+        for i in range(num_iters):
+            self.epOut.write(data[i*chunk_size:(i+1)*chunk_size], timeout=self.max_usb_timeout * 1000)
+        if (num_iters*chunk_size) != len(data):
+            self.epOut.write(data[num_iters*chunk_size:], timeout=self.max_usb_timeout * 1000)
 
-# Code dependant on this connection method
-def sendByte_serial(byte_to_send, num_bytes):
-    serial_port.write(byte_to_send.to_bytes(num_bytes, byteorder='big'))
-    return
+    def receiveByte(self, num_bytes):
+        recv = int.from_bytes(self.epIn.read(num_bytes, timeout=self.max_usb_timeout * 1000), byteorder='big')
+        return recv
 
-# Code dependant on this connection method
-def sendList_serial(data, chunk_size=8):
-    num_iters = int(len(data)/chunk_size)
-    for i in range(num_iters):
-        serial_port.write(bytes(data[i*chunk_size:(i+1)*chunk_size]))
-    #print(num_iters*chunk_size)
-    #print(len(data))
-    if (num_iters*chunk_size) != len(data):
-        serial_port.write(bytes(data[num_iters*chunk_size:]))
+    def receiveByte_raw(self, num_bytes):
+        return self.epIn.read(num_bytes, timeout=self.max_usb_timeout * 1000)
+    
+    def kill_function(self):
+        import usb.util
+        usb.util.dispose_resources(self.dev)
+        if(os.name != "nt"):
+            if self.reattach:
+                self.dev.attach_kernel_driver(0)
 
-def receiveByte_serial(num_bytes):
-    recv = int.from_bytes(serial_port.read(num_bytes), byteorder='big')
-    return recv
+class PySerialSendRecv:
+    def __init__(self, serial_port):
+        self.serial_port = serial_port
 
-def receiveByte_raw_serial(num_bytes):
-    return serial_port.read(num_bytes)
+    # Code dependant on this connection method
+    def sendByte(self, byte_to_send, num_bytes):
+        self.serial_port.write(byte_to_send.to_bytes(num_bytes, byteorder='big'))
+        return
 
-# Code dependant on this connection method
-def sendByte_win(byte_to_send, num_bytes):
-    p.write(byte_to_send.to_bytes(num_bytes, byteorder='big'))
+    # Code dependant on this connection method
+    def sendList(self, data, chunk_size=8):
+        num_iters = int(len(data)/chunk_size)
+        for i in range(num_iters):
+            self.serial_port.write(bytes(data[i*chunk_size:(i+1)*chunk_size]))
+        if (num_iters*chunk_size) != len(data):
+            self.serial_port.write(bytes(data[num_iters*chunk_size:]))
 
-# Code dependant on this connection method
-def sendList_win(data, chunk_size=8):
-    num_iters = int(len(data)/chunk_size)
-    for i in range(num_iters):
-        p.write(bytes(data[i*chunk_size:(i+1)*chunk_size]))
-    #print(num_iters*chunk_size)
-    #print(len(data))
-    if (num_iters*chunk_size) != len(data):
-        p.write(bytes(data[num_iters*chunk_size:]))
+    def receiveByte(self, num_bytes):
+        recv = int.from_bytes(self.serial_port.read(num_bytes), byteorder='big')
+        return recv
 
-def receiveByte_win(num_bytes):
-    recv = int.from_bytes(p.read(size=num_bytes), byteorder='big')
-    return recv
+    def receiveByte_raw(self, num_bytes):
+        return self.serial_port.read(num_bytes)
+    
+    def kill_function(self):
+        self.serial_port.reset_input_buffer()
+        self.serial_port.reset_output_buffer()
+        self.serial_port.close()
 
-def receiveByte_raw_win(num_bytes):
-    return p.read(size=num_bytes)
+class WinUSBCDCSendRecv:
+    def __init__(self, p):
+        self.p = p
+        
+    # Code dependant on this connection method
+    def sendByte(self, byte_to_send, num_bytes):
+        self.p.write(byte_to_send.to_bytes(num_bytes, byteorder='big'))
+
+    # Code dependant on this connection method
+    def sendList(self, data, chunk_size=8):
+        num_iters = int(len(data)/chunk_size)
+        for i in range(num_iters):
+            self.p.write(bytes(data[i*chunk_size:(i+1)*chunk_size]))
+        if (num_iters*chunk_size) != len(data):
+            self.p.write(bytes(data[num_iters*chunk_size:]))
+
+    def receiveByte(self, num_bytes):
+        recv = int.from_bytes(self.p.read(size=num_bytes), byteorder='big')
+        return recv
+
+    def receiveByte_raw(self, num_bytes):
+        return self.p.read(size=num_bytes)
+    
+    def kill_function(self):
+        pass
 
 # Things for the USB connection part
-def exit_gracefully():
-    if dev is not None:
-        usb.util.dispose_resources(dev)
-        if(os.name != "nt"):
-            if reattach:
-                dev.attach_kernel_driver(0)
-    if serial_port is not None:
-        serial_port.reset_input_buffer()
-        serial_port.reset_output_buffer()
-        serial_port.close()
+def exit_gracefully(usb_handler):
+    if usb_handler is not None:
+        usb_handler.kill_function()
     os._exit(1)
 
-def exit_no_device():
-    print("Device not found!")
-    exit_gracefully()
-
-def signal_handler(sig, frame):
-    print("You pressed Ctrl+C!")
-    exit_gracefully()
-
-def libusb_method():
-    global dev, epIn, epOut, reattach
+def libusb_method(VID, PID, max_usb_timeout, user_output):
+    import usb.core
+    import usb.util
+    dev = None
     try:
         devices = list(usb.core.find(find_all=True,idVendor=VID, idProduct=PID))
         for d in devices:
-            #print('Device: %s' % d.product)
+            #user_output.set_out("Device: " + str(d.product))
             dev = d
         if dev is None:
-            return False
+            return None
         reattach = False
         if(os.name != "nt"):
             if dev.is_kernel_driver_active(0):
@@ -415,7 +450,7 @@ def libusb_method():
                     sys.exit("Could not detach kernel driver: %s" % str(e))
             else:
                 pass
-                #print("no kernel driver attached")
+                #user_output.set_out("no kernel driver attached")
         
         dev.reset()
 
@@ -445,27 +480,28 @@ def libusb_method():
 
         dev.ctrl_transfer(bmRequestType = 1, bRequest = 0x22, wIndex = 2, wValue = 0x01)
     except:
-        return False
-    return True
+        return None
+    return LibUSBSendRecv(epOut, epIn, dev, reattach, max_usb_timeout)
 
-def winusbcdc_method():
-    global p
+def winusbcdc_method(VID, PID, max_usb_timeout, user_output):
     if(os.name == "nt"):
+        from winusbcdc import ComPort
         try:
-            print("Trying WinUSB CDC")
+            user_output.set_out("Trying WinUSB CDC")
             p = ComPort(vid=VID, pid=PID)
             if not p.is_open:
-                return False
+                return None
             #p.baudrate = 115200
             p.settimeout(max_usb_timeout)
         except:
-            return False
+            return None
     else:
-        return False
-    return True
+        return None
+    return WinUSBCDCSendRecv(p)
 
-def serial_method():
-    global serial_port
+def serial_method(VID, PID, max_usb_timeout, user_output):
+    import serial
+    import serial.tools.list_ports
     try:
         ports = list(serial.tools.list_ports.comports())
         serial_success = False
@@ -476,84 +512,80 @@ def serial_method():
                     port = device.device
                     break
         if port is None:
-            return False
+            return None
         serial_port = serial.Serial(port=port, bytesize=8, timeout=0.05, write_timeout = max_usb_timeout)
     except Exception as e:
-        return False
-    return True
+        return None
+    return PySerialSendRecv(serial_port)
 
-signal.signal(signal.SIGINT, signal_handler)
-
-try_serial = False
-try_libusb = False
-try_winusbcdc = False
-try:
-    import usb.core
-    import usb.util
-    try_libusb = True
-except:
-    pass
-
-if(os.name == "nt"):
+# Initial function which sets up the USB connection and then calls the Main function.
+# Gets the ending function once the connection ends, then the USB identifiers, and the USB Timeout.
+# Also receives the user input class, the transfer state's class and the user output class.
+def start_usb_transfer(end_function, VID, PID, max_usb_timeout, pc_commands, transfer_state, user_output, do_ctrl_c_handling=False):
+    try_serial = False
+    try_libusb = False
+    try_winusbcdc = False
     try:
-        from winusbcdc import ComPort
-        try_winusbcdc = True
+        import usb.core
+        import usb.util
+        try_libusb = True
     except:
         pass
-try:
-    import serial
-    import serial.tools.list_ports
-    try_serial = True
-except:
-    pass
 
-sender = None
-receiver = None
-list_sender = None
-raw_receiver = None
-found = False
+    if(os.name == "nt"):
+        try:
+            from winusbcdc import ComPort
+            try_winusbcdc = True
+        except:
+            pass
+    try:
+        import serial
+        import serial.tools.list_ports
+        try_serial = True
+    except:
+        pass
 
-# The execution path
-try:
-    if (not found) and try_serial:
-        if(serial_method()):
-            sender = sendByte_serial
-            receiver = receiveByte_serial
-            list_sender = sendList_serial
-            raw_receiver = receiveByte_raw_serial
-            found = True
-    if (not found) and try_libusb:
-        if(libusb_method()):
-            sender = sendByte
-            receiver = receiveByte
-            list_sender = sendList
-            raw_receiver = receiveByte_raw
-            found = True
-    if (not found) and try_winusbcdc:
-        if(winusbcdc_method()):
-            sender = sendByte_win
-            receiver = receiveByte_win
-            list_sender = sendList_win
-            raw_receiver = receiveByte_raw_win
-            found = True
+    usb_handler = None
 
-    if found:
-        print("USB connection established!")
-        transfer_func(sender, receiver, list_sender, raw_receiver)
-    else:
-        print("Couldn't find USB device!")
-        missing = ""
-        if not try_serial:
-            missing += "PySerial, "
-        if not try_libusb:
-            missing += "PyUSB, "
-        if(os.name == "nt") and (not try_winusbcdc):
-            missing += "WinUsbCDC, "
-        if missing != "":
-            print("If the device is attached, try installing " + missing[:-2])
-    
-    exit_gracefully()
-except:
-    traceback.print_exc()
-    print("Unexpected exception: ", sys.exc_info()[0])
-    exit_gracefully()
+    def signal_handler_ctrl_c(sig, frame):
+        user_output.set_out("You pressed Ctrl+C!")
+        transfer_state.end = True
+
+    if do_ctrl_c_handling:
+        signal.signal(signal.SIGINT, signal_handler_ctrl_c)
+
+    # The execution path
+    try:
+        if(usb_handler is None) and try_libusb:
+            usb_handler = libusb_method(VID, PID, max_usb_timeout, user_output)
+        if (usb_handler is None) and try_winusbcdc:
+            usb_handler = winusbcdc_method(VID, PID, max_usb_timeout, user_output)
+        if (usb_handler is None) and try_serial:
+            usb_handler = serial_method(VID, PID, max_usb_timeout, user_output)
+
+        if usb_handler is not None:
+            user_output.set_out("USB connection established!")
+            transfer_func(usb_handler.sendByte, usb_handler.receiveByte, usb_handler.sendList, usb_handler.receiveByte_raw, pc_commands, transfer_state, user_output)
+        else:
+            user_output.set_out("Couldn't find USB device!")
+            missing = ""
+            if not try_serial:
+                missing += "PySerial, "
+            if not try_libusb:
+                missing += "PyUSB, "
+            if(os.name == "nt") and (not try_winusbcdc):
+                missing += "WinUsbCDC, "
+            if missing != "":
+                user_output.set_out("If the device is attached, try installing " + missing[:-2])
+        
+        end_function(usb_handler)
+    except:
+        #traceback.print_exc()
+        user_output.set_out("Unexpected exception: " + str(sys.exc_info()[0]))
+        end_function(usb_handler)
+
+if __name__ == "__main__":
+    VID = 0xcafe
+    PID = 0x4011
+    max_usb_timeout = 5
+    start_usb_transfer(exit_gracefully, VID, PID, max_usb_timeout, KeyboardThread(), TransferStatus(), UserOutput(), do_ctrl_c_handling=True)

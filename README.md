@@ -7,6 +7,7 @@ A basic implementation is available for the Stacksmashing board, though changing
 Make and install the firmware onto your pico board. Instructions available below.
 
 Once that is done, connect your device to a USB port and launch usb_pico_interface.py, in order to offer an interface to the Pico for the internet.
+
 Finally, connect the device to a Game Boy using a Link Cable, to emulate the GB Mobile Adapter.
 
 ## Build dependencies
