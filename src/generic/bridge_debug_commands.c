@@ -78,7 +78,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
         case SEND_EEPROM_CMD:
             data_out[0] = CMD_DEBUG_INFO_CFG;
 #ifdef CAN_SAVE
-            ReadConfig(data_out + 1, EEPROM_SIZE);
+            ReadEeprom(data_out + 1);
             debug_send(data_out, EEPROM_SIZE + 1, GBRIDGE_CMD_DEBUG_INFO);
 #else
             if(mobile->started)
@@ -147,7 +147,10 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 size = EEPROM_SIZE - offset;
             
             impl_config_write(mobile, data + 2, offset, size);
-            mobile_config_load(mobile->adapter);
+
+            if((size + offset) == EEPROM_SIZE)
+                mobile_config_load(mobile->adapter);
+
             debug_send_ack(cmd);
 
             break;

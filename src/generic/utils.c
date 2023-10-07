@@ -3,6 +3,23 @@
 
 #include "utils.h"
 
+uint32_t read_big_endian(const uint8_t* buffer, uint32_t size) {
+    if(size > 4)
+        return 0;
+    uint32_t result = 0;
+    for(int i = 0; i < size; i++)
+        result |= buffer[i] << ((size - (i + 1)) * 8);
+    return result;
+}
+
+void write_big_endian(uint8_t* buffer, uint32_t data, uint32_t size) {
+    if(size > 4)
+        return;
+    uint32_t result = 0;
+    for(int i = 0; i < size; i++)
+        buffer[i] = (data >> ((size - (i + 1)) * 8)) & 0xFF;
+}
+
 uint16_t calc_checksum(const uint8_t* buffer, uint32_t size) {
     uint16_t checksum = 0;
     for(int i = 0; i < size; i++)
@@ -12,12 +29,11 @@ uint16_t calc_checksum(const uint8_t* buffer, uint32_t size) {
 
 void set_checksum(const uint8_t* buffer, uint32_t size, uint8_t* checksum_buffer) {
     uint16_t checksum = calc_checksum(buffer, size);
-    checksum_buffer[0] = checksum >> 8;
-    checksum_buffer[1] = checksum & 0xFF;
+    write_big_endian(checksum_buffer, checksum, 2);
 }
 
 bool check_checksum(const uint8_t* buffer, uint32_t size, const uint8_t* checksum_buffer) {
-    uint16_t checksum_prepared = (checksum_buffer[0] << 8) | checksum_buffer[1];
+    uint16_t checksum_prepared = read_big_endian(checksum_buffer, 2);
     uint16_t checksum = calc_checksum(buffer, size);
     return checksum == checksum_prepared;
 }

@@ -14,7 +14,7 @@
 #include "gbridge.h"
 
 // This file is mostly generic, but different implementations
-// may use different data structures...
+// may use different data structures for things like wifi, etc...
 
 #define CONFIG_LAST_EDIT_TIMEOUT SEC(1)
 
@@ -62,7 +62,10 @@ void pico_mobile_init(upkeep_callback_t callback) {
 
     memset(mobile->config_eeprom,0x00,sizeof(mobile->config_eeprom));
 #ifdef CAN_SAVE
-    ReadConfig(mobile->config_eeprom, EEPROM_SIZE);
+    InitSave();
+    struct saved_data_pointers ptrs;
+    InitSavedPointers(&ptrs, mobile);
+    ReadConfig(&ptrs);
 #endif
     mobile->automatic_save = true;
     mobile->force_save = false;
@@ -117,7 +120,9 @@ void pico_mobile_loop(bool is_same_core) {
             bool prev_state = linkcable_is_enabled();
             if((!is_same_core) && prev_state)
                 linkcable_disable();
-            SaveConfig(mobile->config_eeprom, EEPROM_SIZE);
+            struct saved_data_pointers ptrs;
+            InitSavedPointers(&ptrs, mobile);
+            SaveConfig(&ptrs);
             haveConfigToWrite = false;
             mobile->force_save = false;
             if((!is_same_core) && prev_state)
