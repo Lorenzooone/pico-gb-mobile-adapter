@@ -416,14 +416,17 @@ class GBridgeDebugCommands:
 
     def prepare_offsetted_data(data):
         total_data = []
-        single_split_length = GBridgeDebugCommands.MAXIMUM_LENGTH - 2
+        single_split_length = GBridgeDebugCommands.MAXIMUM_LENGTH - 3
         num_iters = int((len(data) + single_split_length - 1) / single_split_length)
         for i in range(num_iters):
             left_side = i * single_split_length
             right_side = (i + 1) * single_split_length
             if right_side > len(data):
                 right_side = len(data)
-            total_data += list(left_side.to_bytes(2, byteorder='big')) + data[left_side : right_side]
+            done_value = 0
+            if i == (num_iters - 1):
+                done_value = 1
+            total_data += list(left_side.to_bytes(2, byteorder='big')) + list(done_value.to_bytes(1, byteorder='big')) + data[left_side : right_side]
         return total_data
 
     def send_preprocessed_data(command_id, data):

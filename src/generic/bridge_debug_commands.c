@@ -131,14 +131,15 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             debug_send(data_out, send_size + 1, GBRIDGE_CMD_DEBUG_INFO);
             break;
         case UPDATE_EEPROM_CMD:
-            if(size < 2)
+            if(size < 3)
                 return;
 
             if(mobile->started)
                 return;
 
             unsigned offset = (data[0] << 8) | data[1];
-            size -= 2;
+            uint8_t is_done = data[2];
+            size -= 3;
             
             if(offset > EEPROM_SIZE)
                 offset = EEPROM_SIZE;
@@ -146,9 +147,9 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             if((size + offset) > EEPROM_SIZE)
                 size = EEPROM_SIZE - offset;
             
-            impl_config_write(mobile, data + 2, offset, size);
+            impl_config_write(mobile, data + 3, offset, size);
 
-            if((size + offset) == EEPROM_SIZE)
+            if(is_done)
                 mobile_config_load(mobile->adapter);
 
             debug_send_ack(cmd);
