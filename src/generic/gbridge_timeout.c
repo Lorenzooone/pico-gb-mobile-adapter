@@ -1,7 +1,7 @@
 #include "gbridge_timeout.h"
 #include "time_defs.h"
 
-#define DEFAULT_MAX_RETRIES 4
+#define DEFAULT_MAX_RETRIES 3
 #define DEFAULT_TIMEOUT 5 // Seconds, for this implementation
 
 static timeout_time_t timeout_time = SEC(DEFAULT_TIMEOUT);
@@ -77,7 +77,7 @@ bool failed_can_try_again(void) {
     if(!num_retries)
         return true;
     curr_retries++;
-    if(curr_retries >= num_retries)
+    if(curr_retries > num_retries)
         return false;
     return true;
 }
