@@ -17,13 +17,24 @@ class GBridgeCommand:
     
     def __init__(self, data, success_checksum, upper_cmd, total_len, old_len):
         self.upper_cmd = upper_cmd
+        self.processed = False
         self.pending = None
         self.total_len = total_len
         self.old_len = old_len
         self.is_split = False
+        self.retry_data = False
+        self.retry_stream = False
         self.response_cmd = None
-        if (not (self.upper_cmd & GBridge.GBRIDGE_CMD_REPLY_F)) and (not (self.upper_cmd in GBridge.no_reply_upper_cmds)):
+        if(not (self.upper_cmd & GBridge.GBRIDGE_CMD_REPLY_F)) and (not (self.upper_cmd in GBridge.no_reply_upper_cmds)):
             self.response_cmd = self.upper_cmd | GBridge.GBRIDGE_CMD_REPLY_F
+        
+        # Handle checksum failures
+        if self.upper_cmd == (GBridge.GBRIDGE_CMD_DATA_PC_FAIL | GBridge.GBRIDGE_CMD_REPLY_F):
+            self.retry_data = True
+            self.retry_stream = True
+        if self.upper_cmd == (GBridge.GBRIDGE_CMD_STREAM_PC_FAIL | GBridge.GBRIDGE_CMD_REPLY_F):
+            self.retry_stream = True
+            
         self.command = None
         self.answer = []
         self.success_checksum = True
@@ -99,9 +110,7 @@ class GBridgeCommand:
     
     def get_if_pending(self):
         if self.pending is not None:
-            answer = self.pending
-            self.pending = None
-            return answer
+            return self.pending
         return []
     
     def do_print(self, user_output):
@@ -246,9 +255,13 @@ class GBridge:
     GBRIDGE_CMD_DEBUG_LOG = 0x05
     GBRIDGE_CMD_DEBUG_ACK = 0x08
     GBRIDGE_CMD_DATA = 0x0A
+    GBRIDGE_CMD_DATA_FAIL = 0x0B
     GBRIDGE_CMD_STREAM = 0x0C
+    GBRIDGE_CMD_STREAM_FAIL = 0x0D
     GBRIDGE_CMD_DATA_PC = 0x4A
+    GBRIDGE_CMD_DATA_PC_FAIL = 0x4B
     GBRIDGE_CMD_STREAM_PC = 0x4C
+    GBRIDGE_CMD_STREAM_PC_FAIL = 0x4D
     GBRIDGE_CMD_REPLY_F = 0x80
     
     no_reply_upper_cmds = {
@@ -297,6 +310,7 @@ class GBridge:
 
         start = [cmd] + list(len(data).to_bytes(size_length, byteorder='big'))
         checksum = GBridge.calc_checksum(data)
+
         return start + data + list(checksum.to_bytes(2, byteorder='big'))
            
     def consume_cmd(self):

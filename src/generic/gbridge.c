@@ -6,8 +6,9 @@
 #include "utils.h"
 
 #define DEBUG_MAX_SIZE 0x200
+#define MAX_CMD_SIZE_SIZE 4
 
-static bool get_section(uint8_t* buffer, uint32_t size, bool run_callback, bool is_cmd) {
+static bool get_section(uint8_t* buffer, uint32_t size, bool run_callback) {
     uint32_t pos = 0;
     bool found = true;
     while(pos < size) {
@@ -32,23 +33,28 @@ static bool get_section(uint8_t* buffer, uint32_t size, bool run_callback, bool 
     return true;
 }
 
-static bool _get_x_bytes(uint8_t* buffer, uint32_t size, uint32_t limit, uint32_t* read_size, uint8_t wanted_cmd, uint8_t size_length, bool run_callback) {
+static bool _get_x_bytes(uint8_t* buffer, uint32_t size, uint32_t limit, uint32_t* read_size, uint8_t wanted_cmd, bool run_callback) {
     *read_size = 0;
     if(!buffer)
         return true;
-    uint8_t cmd_data[5];
+    uint8_t cmd_data[1 + MAX_CMD_SIZE_SIZE];
     uint8_t checksum_data[GBRIDGE_CHECKSUM_SIZE];
-    if(size_length > 4)
-        size_length = 4;
 
     prepare_failure();
     bool try = true;
     while(try) {
         if(!failed_can_try_again())
             return false;
-        if(!get_section(cmd_data, size_length + 1, run_callback, true))
+        if(!get_section(cmd_data, 1, run_callback))
             continue;
-        if(wanted_cmd != cmd_data[0])
+        if((cmd_data[0] != GBRIDGE_CMD_STREAM_PC) && (cmd_data[0] != GBRIDGE_CMD_DATA_PC))
+            continue;
+        uint8_t size_length = 1;
+        if(cmd_data[0] == GBRIDGE_CMD_STREAM_PC)
+            size_length = 2;
+        if(size_length > MAX_CMD_SIZE_SIZE)
+            size_length = MAX_CMD_SIZE_SIZE;
+        if(!get_section(cmd_data + 1, size_length, run_callback))
             continue;
         uint32_t cmd_size = 0;
         for(int i = 0; i < size_length; i++)
@@ -58,18 +64,20 @@ static bool _get_x_bytes(uint8_t* buffer, uint32_t size, uint32_t limit, uint32_
         if(size > cmd_size)
             cmd_size = size;
         *read_size = cmd_size;
-        if(!get_section(buffer, cmd_size, run_callback, false))
+        if(!get_section(buffer, cmd_size, run_callback))
             continue;
-        if(!get_section(checksum_data, GBRIDGE_CHECKSUM_SIZE, run_callback, false))
+        if(!get_section(checksum_data, GBRIDGE_CHECKSUM_SIZE, run_callback))
+            continue;
+        if(wanted_cmd != cmd_data[0])
             continue;
         if(check_checksum(buffer, cmd_size, checksum_data))
             try = false;
         uint8_t buffer_send[] = {GBRIDGE_CMD_REPLY_F | wanted_cmd};
-        if(try)
-            buffer_send[0] += 1;
         if(run_callback) {
             prepare_timeout();
             uint32_t pos = 0;
+            if(try)
+                buffer_send[0] += 1;
             while(!pos) {
                 if(!timeout_can_try_again()) {
                     reset_data_out();
@@ -86,13 +94,10 @@ static bool _get_x_bytes(uint8_t* buffer, uint32_t size, uint32_t limit, uint32_
 
 bool get_x_bytes(uint8_t* buffer, uint32_t size, bool run_callback, bool expected_data, uint32_t limit, uint32_t* read_size) {
     uint8_t wanted_cmd = GBRIDGE_CMD_STREAM_PC;
-    uint8_t size_length = 2;
-    if(expected_data) {
+    if(expected_data)
         wanted_cmd = GBRIDGE_CMD_DATA_PC;
-        size_length = 1;
-    }
 
-    return _get_x_bytes(buffer, size, limit, read_size, wanted_cmd, size_length, run_callback);
+    return _get_x_bytes(buffer, size, limit, read_size, wanted_cmd, run_callback);
 }
 
 static bool are_available(uint32_t size, bool is_debug) {
@@ -125,10 +130,10 @@ static bool send_section(const uint8_t* buffer, uint32_t size, uint32_t* pos, bo
 
 static bool _send_x_bytes(const uint8_t* buffer, uint32_t size, uint8_t cmd, uint8_t size_length, bool run_callback, bool send_checksum, bool expect_recieve, bool is_debug) {
     uint8_t checksum_buffer[GBRIDGE_CHECKSUM_SIZE];
-    uint8_t command_buffer[5];
+    uint8_t command_buffer[1 + MAX_CMD_SIZE_SIZE];
     command_buffer[0] = cmd;
-    if(size_length > 4)
-        size_length = 4;
+    if(size_length > MAX_CMD_SIZE_SIZE)
+        size_length = MAX_CMD_SIZE_SIZE;
     for(int i = 0; i < size_length; i++)
         command_buffer[i + 1] = (size >> (8 * (size_length - (i + 1)))) & 0xFF;
     set_checksum(buffer, size, checksum_buffer);

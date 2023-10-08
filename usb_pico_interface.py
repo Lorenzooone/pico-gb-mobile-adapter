@@ -76,6 +76,7 @@ class SocketThread(threading.Thread):
         DEBUG_TRANSFER_FLAG = 0x80
         print_data_in = False
         debug_print = True
+        last_sent = [None, None]
 
         while True:
             self.lock_in.acquire()
@@ -112,12 +113,33 @@ class SocketThread(threading.Thread):
                             curr_cmd.do_print(self.user_output)
                         curr_cmd.check_save(save_requests, self.user_output)
                         if(curr_cmd.response_cmd is not None):
-                            send_list += [curr_cmd.response_cmd]
                             if(curr_cmd.process(self.bridge_sockets)):
-                                send_list += GBridge.prepare_cmd(curr_cmd.result_to_send(), False)
-                                send_list += GBridge.prepare_cmd(curr_cmd.get_if_pending(), True)
-            
-            self.out_data = send_list
+                                curr_cmd.processed = True
+                            send_list += [curr_cmd]
+                        elif(curr_cmd.retry_data or curr_cmd.retry_stream):
+                            send_list += [curr_cmd]
+
+            self.out_data = []
+            curr_last_sent = None
+            last_sent_index = 0
+            if is_debug:
+                last_sent_index = 1
+
+            for i in range(len(send_list)):
+                if send_list[i].response_cmd is not None:
+                    self.out_data += [send_list[i].response_cmd]
+                    if send_list[i].processed:
+                        self.out_data += GBridge.prepare_cmd(send_list[i].result_to_send(), False)
+                        self.out_data += GBridge.prepare_cmd(send_list[i].get_if_pending(), True)
+                        curr_last_sent = send_list[i]
+                else:
+                    if send_list[i].retry_data:
+                        self.out_data += GBridge.prepare_cmd(last_sent[last_sent_index].result_to_send(), False)
+                    if send_list[i].retry_stream:
+                        self.out_data += GBridge.prepare_cmd(last_sent[last_sent_index].get_if_pending(), True)
+
+            if curr_last_sent is not None:
+                last_sent[last_sent_index] = curr_last_sent
 
             self.lock_out.release()
 
