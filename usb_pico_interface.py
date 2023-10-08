@@ -164,64 +164,37 @@ def add_result_debug_commands(actual_cmd, data, debug_send_list, ack_requests):
     result, ack_wanted = GBridgeDebugCommands.load_command(actual_cmd, data)
     debug_send_list += result
     ack_requests[actual_cmd] = ack_wanted
+
+class InputCommand:
+    def __init__(self, to_send_cmd, description, valid_inputs=[], comm_cmd=None, specific_cmd=None):
+        self.description = description
+        self.to_send_cmd = to_send_cmd
+        self.comm_cmd = comm_cmd
+        self.specific_cmd = specific_cmd
+        self.valid_inputs = valid_inputs
     
-    
-def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requests):
-    
+    def get_help(self, elem):
+        help_string = "  " + elem
+        for input_list in self.valid_inputs:
+            help_string += " "
+            if not input_list[0]:
+                help_string += "["
+            for input_element in input_list[1:]:
+                if input_element.islower():
+                    help_string += "$"
+                help_string += input_element
+                if input_element.islower():
+                    help_string += "$"
+                help_string += "/"
+            help_string = help_string[:-1]
+            if not input_list[0]:
+                help_string += "]"
+        help_string += "\n    " + self.description
+        return help_string
+        
+
+class FullInputCommands:
     RELAY_TOKEN_SIZE = 0x10
-
-    basic_commands = {
-        "GET EEPROM": GBridgeDebugCommands.SEND_EEPROM_CMD,
-        "GET STATUS": GBridgeDebugCommands.STATUS_CMD,
-        "START ADAPTER": GBridgeDebugCommands.START_CMD,
-        "STOP ADAPTER": GBridgeDebugCommands.STOP_CMD,
-        "GET NAME": GBridgeDebugCommands.SEND_NAME_INFO_CMD,
-        "GET INFO": GBridgeDebugCommands.SEND_OTHER_INFO_CMD,
-        "GET NUMBER": GBridgeDebugCommands.SEND_NUMBER_OWN_CMD,
-        "GET NUMBER_PEER": GBridgeDebugCommands.SEND_NUMBER_OTHER_CMD,
-        "GET RELAY_TOKEN": GBridgeDebugCommands.SEND_RELAY_TOKEN_CMD,
-        "FORCE SAVE": GBridgeDebugCommands.FORCE_SAVE_CMD
-    }
-    
-    on_off_commands = {
-        "AUTO SAVE": GBridgeDebugCommands.SET_SAVE_STYLE_CMD
-    }
-    
-    mobile_adapter_commands = {
-        "SET DEVICE": GBridgeDebugCommands.UPDATE_DEVICE_CMD
-    }
-    
-    unsigned_commands = {
-        "SET P2P_PORT": GBridgeDebugCommands.UPDATE_P2P_PORT_CMD
-    }
-    
-    token_commands = {
-        "SET RELAY_TOKEN": GBridgeDebugCommands.UPDATE_RELAY_TOKEN_CMD
-    }
-    
-    address_commands = {
-        "SET DNS_1": GBridgeDebugCommands.UPDATE_DNS1_CMD,
-        "SET DNS_2": GBridgeDebugCommands.UPDATE_DNS2_CMD,
-        "SET RELAY": GBridgeDebugCommands.UPDATE_RELAY_CMD,
-    }
-
-    path_send_commands = {
-        "SAVE EEPROM": GBridgeDebugCommands.SEND_EEPROM_CMD,
-        "LOAD EEPROM": GBridgeDebugCommands.UPDATE_EEPROM_CMD
-    }
-
-    loading_commands = {
-        "LOAD EEPROM"
-    }
-
-    saving_commands = {
-        "SAVE EEPROM": [GBridge.GBRIDGE_CMD_DEBUG_INFO, GBridgeDebugCommands.CMD_DEBUG_INFO_CFG],
-        "SAVE DBG_IN": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_IN],
-        "SAVE DBG_OUT": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_OUT],
-        "SAVE TIME_TR": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_TR],
-        "SAVE TIME_AC": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_AC],
-        "SAVE TIME_IR": [GBridge.GBRIDGE_CMD_DEBUG_LOG, GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_IR]
-    }
     
     mobile_adapter_types = {
         "BLUE": 8,
@@ -230,77 +203,173 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
         "RED": 11
     }
 
+    basic_commands = {
+        "GET EEPROM": InputCommand(GBridgeDebugCommands.SEND_EEPROM_CMD, "Outputs the EEPROM contents"),
+        "GET STATUS": InputCommand(GBridgeDebugCommands.STATUS_CMD, "Outputs the Adapter's state"),
+        "START ADAPTER": InputCommand(GBridgeDebugCommands.START_CMD, "Starts the Adapter"),
+        "STOP ADAPTER": InputCommand(GBridgeDebugCommands.STOP_CMD, "Stops the Adapter"),
+        "GET NAME": InputCommand(GBridgeDebugCommands.SEND_NAME_INFO_CMD, "Gets the Adapter's name"),
+        "GET INFO": InputCommand(GBridgeDebugCommands.SEND_OTHER_INFO_CMD, "Gets information about the Adapter's versions"),
+        "GET NUMBER": InputCommand(GBridgeDebugCommands.SEND_NUMBER_OWN_CMD, "Gets the current number of the Adapter"),
+        "GET NUMBER_PEER": InputCommand(GBridgeDebugCommands.SEND_NUMBER_OTHER_CMD, "Gets the number of the other player"),
+        "GET RELAY_TOKEN": InputCommand(GBridgeDebugCommands.SEND_RELAY_TOKEN_CMD, "Gets the Relay Token (DO NOT SHARE)"),
+        "FORCE SAVE": InputCommand(GBridgeDebugCommands.FORCE_SAVE_CMD, "Enforces a data save")
+    }
+    
+    on_off_commands = {
+        "AUTO SAVE": InputCommand(GBridgeDebugCommands.SET_SAVE_STYLE_CMD, "Toggles automatic data saving on/off", valid_inputs = [[True, "ON", "OFF"]])
+    }
+    
+    mobile_adapter_commands = {
+        "SET DEVICE": InputCommand(GBridgeDebugCommands.UPDATE_DEVICE_CMD, "Changes the Adapter's type", valid_inputs = [[True] + list(mobile_adapter_types.keys()), [False, "UNMETERED"]])
+    }
+    
+    unsigned_commands = {
+        "SET P2P_PORT": InputCommand(GBridgeDebugCommands.UPDATE_P2P_PORT_CMD, "Sets the port used for direct P2P", valid_inputs = [[True, "port_number", "AUTO"]])
+    }
+    
+    token_commands = {
+        "SET RELAY_TOKEN": InputCommand(GBridgeDebugCommands.UPDATE_RELAY_TOKEN_CMD, "(Un)Sets the P2P Relay Token", valid_inputs = [[True, "relay_token", "NULL"]])
+    }
+    
+    address_commands = {
+        "SET DNS_1": InputCommand(GBridgeDebugCommands.UPDATE_DNS1_CMD, "(Un)Sets the Adapter's DNS 1", valid_inputs = [[True, "port_number", "AUTO", "NULL"], [False, "ipv4_address", "ipv6_address"]]),
+        "SET DNS_2": InputCommand(GBridgeDebugCommands.UPDATE_DNS2_CMD, "(Un)Sets the Adapter's DNS 2", valid_inputs = [[True, "port_number", "AUTO", "NULL"], [False, "ipv4_address", "ipv6_address"]]),
+        "SET RELAY": InputCommand(GBridgeDebugCommands.UPDATE_RELAY_CMD, "(Un)Sets the Adapter's P2P Relay Address", valid_inputs = [[True, "port_number", "AUTO", "NULL"], [False, "ipv4_address", "ipv6_address"]])
+    }
+
+    loading_commands = {
+        "LOAD EEPROM": InputCommand(GBridgeDebugCommands.UPDATE_EEPROM_CMD, "Sends an EEPROM backup to the Adapter. Only works if the adapter is STOPPED!", valid_inputs = [[True, "load_path"]])
+    }
+
+    saving_commands = {
+        "SAVE EEPROM": InputCommand(GBridgeDebugCommands.SEND_EEPROM_CMD, "Saves an EEPROM backup. Might need the adapter to be STOPPED!", valid_inputs = [[True, "save_path"]], comm_cmd=GBridge.GBRIDGE_CMD_DEBUG_INFO, specific_cmd=GBridgeDebugCommands.CMD_DEBUG_INFO_CFG),
+        "SAVE DBG_IN": InputCommand(None, "Saves a debug log of the data sent from the GameBoy", valid_inputs = [[True, "save_path"]], comm_cmd=GBridge.GBRIDGE_CMD_DEBUG_LOG, specific_cmd=GBridgeDebugCommands.CMD_DEBUG_LOG_IN),
+        "SAVE DBG_OUT": InputCommand(None, "Saves a debug log of the data sent to the GameBoy", valid_inputs = [[True, "save_path"]], comm_cmd=GBridge.GBRIDGE_CMD_DEBUG_LOG, specific_cmd=GBridgeDebugCommands.CMD_DEBUG_LOG_OUT),
+        "SAVE TIME_TR": InputCommand(None, "Saves a debug log of the time needed for a single transfer", valid_inputs = [[True, "save_path"]], comm_cmd=GBridge.GBRIDGE_CMD_DEBUG_LOG, specific_cmd=GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_TR),
+        "SAVE TIME_AC": InputCommand(None, "Saves a debug log of the time between transfers", valid_inputs = [[True, "save_path"]], comm_cmd=GBridge.GBRIDGE_CMD_DEBUG_LOG, specific_cmd=GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_AC),
+        "SAVE TIME_IR": InputCommand(None, "Saves a debug log of the time needed for the transfer's logic", valid_inputs = [[True, "save_path"]], comm_cmd=GBridge.GBRIDGE_CMD_DEBUG_LOG, specific_cmd=GBridgeDebugCommands.CMD_DEBUG_LOG_TIME_IR)
+    }
+    
+    full_commands = [
+        basic_commands,
+        on_off_commands,
+        mobile_adapter_commands,
+        address_commands,
+        token_commands,
+        saving_commands,
+        loading_commands
+    ]
+    
+def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requests, user_output):
+    
+    close_all = False
+
     for elem in key_input.get_input():
         tokens = elem.split()
         command = ""
+        success = False
+        if(len(tokens) == 1):
+            if tokens[0].upper().strip() == "HELP":
+
+                help_string = "-----------------\nCommands:\n"
+                help_string += "  HELP\n    Prints this help message\n\n"
+                help_string += "  QUIT\n    Stops the application\n\n"
+                for i in range(len(FullInputCommands.full_commands)):
+                    command_list = FullInputCommands.full_commands[i]
+                    for elem in command_list.keys():
+                        help_string += command_list[elem].get_help(elem) + "\n\n"
+                help_string = help_string[:-1] + "-----------------"
+                    
+                user_output.set_out(help_string)
+                success = True
+            if tokens[0].upper().strip() == "QUIT":
+                help_string = "Stopping the application..."                    
+                user_output.set_out(help_string)
+                close_all = True
+                success = True
+
         if(len(tokens) >= 2):
             command = tokens[0].upper().strip() + " " + tokens[1].upper().strip()
 
-        if command in basic_commands.keys():
-            add_result_debug_commands(basic_commands[command], None, debug_send_list, ack_requests)
-        
-        if command in saving_commands.keys():
-            if command in path_send_commands.keys():
-                add_result_debug_commands(path_send_commands[command], None, debug_send_list, ack_requests)
+        if command in FullInputCommands.basic_commands.keys():
+            add_result_debug_commands(FullInputCommands.basic_commands[command].to_send_cmd, None, debug_send_list, ack_requests)
+            success = True
 
-            if len(tokens) > 2:
+        if len(tokens) > 2:
+            if command in FullInputCommands.saving_commands.keys():
                 save_path = tokens[2].strip()
-                if saving_commands[command][0] not in save_requests.keys():
-                    save_requests[saving_commands[command][0]] = dict()
-                save_requests[saving_commands[command][0]][saving_commands[command][1]] = save_path
-        
-        if command in loading_commands:
-            if len(tokens) > 2:
+                if FullInputCommands.saving_commands[command].to_send_cmd is not None:
+                    add_result_debug_commands(FullInputCommands.saving_commands[command].to_send_cmd, None, debug_send_list, ack_requests)
+                if FullInputCommands.saving_commands[command].comm_cmd not in save_requests.keys():
+                    save_requests[FullInputCommands.saving_commands[command].comm_cmd] = dict()
+                save_requests[FullInputCommands.saving_commands[command].comm_cmd][FullInputCommands.saving_commands[command].specific_cmd] = save_path
+                success = True
+            
+            if command in FullInputCommands.loading_commands.keys():
                 load_path = tokens[2].strip()
                 data = None
-                with open(load_path, mode='rb') as file_read:
-                    data = file_read.read()
+                try:
+                    with open(load_path, mode='rb') as file_read:
+                        data = file_read.read()
+                except:
+                    user_output.set_out("Error while reading file!")
                 if data is not None:
-                    if command in path_send_commands.keys():
-                        add_result_debug_commands(path_send_commands[command], data, debug_send_list, ack_requests)
+                    add_result_debug_commands(FullInputCommands.loading_commands[command].to_send_cmd, data, debug_send_list, ack_requests)
+                    success = True
 
-        if command in mobile_adapter_commands.keys():
-            if len(tokens) > 2:
+            if command in FullInputCommands.mobile_adapter_commands.keys():
                 mobile_type = tokens[2].upper().strip()
                 metered = True
-                if (len(tokens) > 3) and tokens[3] == "UNMETERED":
+                if (len(tokens) > 3) and (tokens[3] == "UNMETERED"):
                     metered = False
-                if mobile_type in mobile_adapter_types.keys():
-                    data = mobile_adapter_types[mobile_type]
+                if mobile_type in FullInputCommands.mobile_adapter_types.keys():
+                    data = FullInputCommands.mobile_adapter_types[mobile_type]
                     if not metered:
                         data |= 0x80
-                    add_result_debug_commands(mobile_adapter_commands[command], data, debug_send_list, ack_requests)
+                    add_result_debug_commands(FullInputCommands.mobile_adapter_commands[command].to_send_cmd, data, debug_send_list, ack_requests)
+                    success = True
 
-        if command in unsigned_commands.keys():
-            if len(tokens) > 2:
-                value = GBridgeSocket.parse_unsigned(unsigned_commands[command], tokens[2])
+            if command in FullInputCommands.unsigned_commands.keys():
+                value = GBridgeSocket.parse_unsigned(FullInputCommands.unsigned_commands[command].to_send_cmd, tokens[2])
                 if value is not None:
-                    add_result_debug_commands(unsigned_commands[command], value, debug_send_list, ack_requests)
+                    add_result_debug_commands(FullInputCommands.unsigned_commands[command].to_send_cmd, value, debug_send_list, ack_requests)
+                    success = True
 
-        if command in address_commands.keys():
-            if len(tokens) > 2:
-                data = GBridgeSocket.parse_addr(address_commands[command], tokens[2:])
+            if command in FullInputCommands.address_commands.keys():
+                data = GBridgeSocket.parse_addr(FullInputCommands.address_commands[command].to_send_cmd, tokens[2:])
                 if data is not None:
-                    add_result_debug_commands(address_commands[command], data, debug_send_list, ack_requests)
+                    add_result_debug_commands(FullInputCommands.address_commands[command].to_send_cmd, data, debug_send_list, ack_requests)
 
-        if command in on_off_commands.keys():
-            if len(tokens) > 2:
+            if command in FullInputCommands.on_off_commands.keys():
                 if(tokens[2].upper().strip() == "ON"):
-                    add_result_debug_commands(on_off_commands[command], 1, debug_send_list, ack_requests)
+                    add_result_debug_commands(FullInputCommands.on_off_commands[command].to_send_cmd, 1, debug_send_list, ack_requests)
+                    success = True
                 if(tokens[2].upper().strip() == "OFF"):
-                    add_result_debug_commands(on_off_commands[command], 0, debug_send_list, ack_requests)
+                    add_result_debug_commands(FullInputCommands.on_off_commands[command].to_send_cmd, 0, debug_send_list, ack_requests)
+                    success = True
 
-        if command in token_commands.keys():
-            if len(tokens) > 2:
+            if command in FullInputCommands.token_commands.keys():
                 data = []
                 try:
                     data = list(bytes.fromhex(tokens[2].upper().strip()))
                 except:
                     pass
-                if len(data) == RELAY_TOKEN_SIZE:
-                    add_result_debug_commands(token_commands[command], [1] + data, debug_send_list, ack_requests)
+                if len(data) == FullInputCommands.RELAY_TOKEN_SIZE:
+                    add_result_debug_commands(FullInputCommands.token_commands[command].to_send_cmd, [1] + data, debug_send_list, ack_requests)
+                    success = True
                 elif tokens[2].upper().strip() == "NULL":
-                    add_result_debug_commands(token_commands[command], [0], debug_send_list, ack_requests)
+                    add_result_debug_commands(FullInputCommands.token_commands[command].to_send_cmd, [0], debug_send_list, ack_requests)
+                    success = True
+
+        if not success:
+            for command_list in FullInputCommands.full_commands:
+                if command in command_list.keys():
+                    help_string = "\nUsage:\n" + command_list[command].get_help(command) + "\n"
+                    user_output.set_out(help_string)
+                    break
+
+    return close_all
 
 def prepare_out_func(analyzed_list, is_debug_cmd, user_output):
     DEBUG_CMD_TRANSFER_FLAG = 0xC0
@@ -329,6 +398,7 @@ def prepare_out_func(analyzed_list, is_debug_cmd, user_output):
 # the transfer state's class and the user output class.
 def transfer_func(sender, receiver, list_sender, raw_receiver, pc_commands, transfer_state, user_output):
     out_data_preparer = SocketThread(user_output)
+    user_output.set_out("Type HELP to get a list of the available commands")
     send_list = []
     debug_send_list = []
     save_requests = dict()
@@ -336,7 +406,10 @@ def transfer_func(sender, receiver, list_sender, raw_receiver, pc_commands, tran
     while not transfer_state.end:
         while transfer_state.wait:
             pass
-        interpret_input_keyboard(pc_commands, debug_send_list, save_requests, ack_requests)
+        asked_quit = interpret_input_keyboard(pc_commands, debug_send_list, save_requests, ack_requests, user_output)
+
+        if asked_quit:
+            transfer_state.end = True
 
         if len(send_list) == 0:
             if len(debug_send_list) > 0:
