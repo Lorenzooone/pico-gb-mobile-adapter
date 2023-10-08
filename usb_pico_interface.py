@@ -23,7 +23,7 @@ class UserOutput:
     def __init__(self):
         pass
 
-    def set_out(self, string, end='\n'):
+    def set_out(self, string, tag, end='\n'):
         print(string, end=end)
 
 # Default user input class.
@@ -103,7 +103,7 @@ class SocketThread(threading.Thread):
 
                 curr_cmd = True
                 if print_data_in and (not is_debug):
-                    self.user_output.set_out("IN: " + str(bytes))
+                    self.user_output.set_out("IN: " + str(bytes), "INP")
                 while curr_cmd is not None:
                     curr_cmd = curr_bridge.init_cmd(bytes)
                     if(curr_cmd is not None):
@@ -281,11 +281,11 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
                         help_string += command_list[elem].get_help(elem) + "\n\n"
                 help_string = help_string[:-1] + "-----------------"
                     
-                user_output.set_out(help_string)
+                user_output.set_out(help_string, "INF")
                 success = True
             if tokens[0].upper().strip() == "QUIT":
                 help_string = "Stopping the application..."                    
-                user_output.set_out(help_string)
+                user_output.set_out(help_string, "END")
                 close_all = True
                 success = True
 
@@ -313,7 +313,7 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
                     with open(load_path, mode='rb') as file_read:
                         data = file_read.read()
                 except:
-                    user_output.set_out("Error while reading file!")
+                    user_output.set_out("Error while reading file!", "EXC")
                 if data is not None:
                     add_result_debug_commands(FullInputCommands.loading_commands[command].to_send_cmd, data, debug_send_list, ack_requests)
                     success = True
@@ -366,7 +366,7 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
             for command_list in FullInputCommands.full_commands:
                 if command in command_list.keys():
                     help_string = "\nUsage:\n" + command_list[command].get_help(command) + "\n"
-                    user_output.set_out(help_string)
+                    user_output.set_out(help_string, "INF")
                     break
 
     return close_all
@@ -391,14 +391,14 @@ def prepare_out_func(analyzed_list, is_debug_cmd, user_output):
         for i in range(num_elems):
             out_buf += analyzed_list[i].to_bytes(1, byteorder='little')
         if print_data_out:
-            user_output.set_out("OUT: " + str(out_buf[1:]))
+            user_output.set_out("OUT: " + str(out_buf[1:]), "OUT")
     return out_buf, num_elems
 
 # Main function, gets the four basic USB connection send/recv functions, the way to get the user input class,
 # the transfer state's class and the user output class.
 def transfer_func(sender, receiver, list_sender, raw_receiver, pc_commands, transfer_state, user_output):
     out_data_preparer = SocketThread(user_output)
-    user_output.set_out("Type HELP to get a list of the available commands")
+    user_output.set_out("Type HELP to get a list of the available commands", "INF")
     send_list = []
     debug_send_list = []
     save_requests = dict()
@@ -531,7 +531,7 @@ def libusb_method(VID, PID, max_usb_timeout, user_output):
     try:
         devices = list(usb.core.find(find_all=True,idVendor=VID, idProduct=PID))
         for d in devices:
-            #user_output.set_out("Device: " + str(d.product))
+            #user_output.set_out("Device: " + str(d.product), "USB")
             dev = d
         if dev is None:
             return None
@@ -545,7 +545,7 @@ def libusb_method(VID, PID, max_usb_timeout, user_output):
                     sys.exit("Could not detach kernel driver: %s" % str(e))
             else:
                 pass
-                #user_output.set_out("no kernel driver attached")
+                #user_output.set_out("no kernel driver attached", "USB")
         
         dev.reset()
 
@@ -582,7 +582,7 @@ def winusbcdc_method(VID, PID, max_usb_timeout, user_output):
     if(os.name == "nt"):
         from winusbcdc import ComPort
         try:
-            user_output.set_out("Trying WinUSB CDC")
+            user_output.set_out("Trying WinUSB CDC", "USB")
             p = ComPort(vid=VID, pid=PID)
             if not p.is_open:
                 return None
@@ -643,7 +643,7 @@ def start_usb_transfer(end_function, VID, PID, max_usb_timeout, pc_commands, tra
     usb_handler = None
 
     def signal_handler_ctrl_c(sig, frame):
-        user_output.set_out("You pressed Ctrl+C!")
+        user_output.set_out("You pressed Ctrl+C!", "END")
         transfer_state.end = True
 
     if do_ctrl_c_handling:
@@ -659,10 +659,10 @@ def start_usb_transfer(end_function, VID, PID, max_usb_timeout, pc_commands, tra
             usb_handler = serial_method(VID, PID, max_usb_timeout, user_output)
 
         if usb_handler is not None:
-            user_output.set_out("USB connection established!")
+            user_output.set_out("USB connection established!", "USB")
             transfer_func(usb_handler.sendByte, usb_handler.receiveByte, usb_handler.sendList, usb_handler.receiveByte_raw, pc_commands, transfer_state, user_output)
         else:
-            user_output.set_out("Couldn't find USB device!")
+            user_output.set_out("Couldn't find USB device!", "USB")
             missing = ""
             if not try_serial:
                 missing += "PySerial, "
@@ -671,12 +671,12 @@ def start_usb_transfer(end_function, VID, PID, max_usb_timeout, pc_commands, tra
             if(os.name == "nt") and (not try_winusbcdc):
                 missing += "WinUsbCDC, "
             if missing != "":
-                user_output.set_out("If the device is attached, try installing " + missing[:-2])
+                user_output.set_out("If the device is attached, try installing " + missing[:-2], "USB")
         
         end_function(usb_handler)
     except:
         #traceback.print_exc()
-        user_output.set_out("Unexpected exception: " + str(sys.exc_info()[0]))
+        user_output.set_out("Unexpected exception: " + str(sys.exc_info()[0]), "EXC")
         end_function(usb_handler)
 
 if __name__ == "__main__":
