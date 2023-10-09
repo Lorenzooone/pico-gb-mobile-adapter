@@ -116,33 +116,38 @@ class GBridgeCommand:
     def do_print(self, user_output):
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_LINE:
             if not self.success_checksum:
-                user_output.set_out("CHECKSUM ERROR!", "INF")
+                user_output.set_out("CHECKSUM ERROR!", user_output.PACKET_ERROR_TAG)
                 return
-            user_output.set_out(bytes(self.data).split(b'\0',1)[0].decode('ascii'), "DIR", end='')
+            user_output.set_out(bytes(self.data).split(b'\0',1)[0].decode('ascii'), user_output.DIRECT_OUTPUT_TAG, end='')
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_CHAR:
             if not self.success_checksum:
-                user_output.set_out("CHECKSUM ERROR!", "INF")
+                user_output.set_out("CHECKSUM ERROR!", user_output.PACKET_ERROR_TAG)
                 return
-            user_output.set_out(GBridgeCommand.prepare_hex_list_str(self.data), "DIR")
+            user_output.set_out(GBridgeCommand.prepare_hex_list_str(self.data), user_output.DIRECT_OUTPUT_TAG)
 
     def print_answer(self, save_requests, ack_requests, user_output):
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_INFO:
             if len(self.data) <= 0:
-                user_output.set_out("SIZE ERROR!", "INF")
+                user_output.set_out("SIZE ERROR!", user_output.PACKET_ERROR_TAG)
                 return
             if not self.success_checksum:
-                user_output.set_out("CHECKSUM ERROR!", "INF")
+                user_output.set_out("CHECKSUM ERROR!", user_output.PACKET_ERROR_TAG)
                 return
             found = False
             if (self.upper_cmd in save_requests.keys()) and (self.data[0] in save_requests[self.upper_cmd].keys()) and (save_requests[self.upper_cmd][self.data[0]] != ""):
                 found = True
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_CFG:
                 if not found:
-                    user_output.set_out(GBridgeCommand.prepare_hex_list_str(self.data[1:]), "IND")
-            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NAME:
-                user_output.set_out(bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'), "NAM")
-            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_OTHER:
-                user_output.set_out(bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'), "VER")
+                    user_output.set_out(GBridgeCommand.prepare_hex_list_str(self.data[1:]), user_output.UNHANDLED_INFO_DIRECT_TAG)
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_IMPL:
+                version_mobile = VersionData(self.data[1:VersionData.VERSION_LENGTH])
+                version_implementation = VersionData(self.data[1+VersionData.VERSION_LENGTH:1+(2*VersionData.VERSION_LENGTH)])
+                user_output.set_out("Libmobile version: ", user_output.TEMPORARY_TAG, end='')
+                user_output.set_out(str(version_mobile), user_output.VERSION_MOBILE_TAG)
+                user_output.set_out("Implementation version: ", user_output.TEMPORARY_TAG, end='')
+                user_output.set_out(str(version_implementation), user_output.VERSION_IMPLEMENTATION_TAG)
+                user_output.set_out("Adapter name: ", user_output.TEMPORARY_TAG, end='')
+                user_output.set_out(bytes(self.data[1+(2*VersionData.VERSION_LENGTH):]).split(b'\0',1)[0].decode('ascii'), user_output.ADAPTER_NAME_TAG)
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_STATUS:
                 str_status = "STATUS: "
                 if(self.data[1] & 1):
@@ -157,11 +162,11 @@ class GBridgeCommand:
                     str_status += "AUTOMATIC SAVE: ON"
                 else:
                     str_status += "AUTOMATIC SAVE: OFF"
-                user_output.set_out(str_status, "STA")
+                user_output.set_out(str_status, user_output.ADAPTER_STATUS_TAG)
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NUMBER:
-                user_output.set_out("YOUR NUMBER: " + bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'), "NUS")
+                user_output.set_out("YOUR NUMBER: " + bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'), user_output.NUMBER_SELF_TAG)
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NUMBER_PEER:
-                user_output.set_out("OTHER'S NUMBER: " + bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'), "NUO")
+                user_output.set_out("OTHER'S NUMBER: " + bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'), user_output.NUMBER_OTHER_TAG)
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_RELAY_TOKEN:
                 if len(self.data) > 1:
                     str_out = "RELAY TOKEN: "
@@ -173,20 +178,20 @@ class GBridgeCommand:
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_GBRIDGE_CFG:
                 time_got = GBridgeTimeResolution.time_from_data(self.data[1:])
                 num_retries = self.data[1 + GBridgeTimeResolution.TOTAL_LENGTH]
-                user_output.set_out("TIMEOUT: " + str(time_got.requested_time) + " (s), NUM_TRIES: " + str(num_retries), "GBR")
+                user_output.set_out("TIMEOUT: " + str(time_got.requested_time) + " (s), NUM_TRIES: " + str(num_retries), user_output.GBRIDGE_INFO_TAG)
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_ACK:
             if len(self.data) <= 0:
-                user_output.set_out("SIZE ERROR!", "INF")
+                user_output.set_out("SIZE ERROR!", user_output.PACKET_ERROR_TAG)
                 return
             if not self.success_checksum:
-                user_output.set_out("CHECKSUM ERROR!", "INF")
+                user_output.set_out("CHECKSUM ERROR!", user_output.PACKET_ERROR_TAG)
                 return
             command = self.data[0]
             if command in ack_requests.keys():
                 if ack_requests[command] > 0:
                     ack_requests[command] -= 1
                     if ack_requests[command] == 0:
-                        user_output.set_out("OPERATION SUCCESSFUL", "SUC")
+                        user_output.set_out("OPERATION SUCCESSFUL", user_output.SUCCESS_OPERATION_TAG)
 
     def prepare_str_out(self, size_entry):
         str_out = ""
@@ -198,13 +203,13 @@ class GBridgeCommand:
         str_out = self.prepare_str_out(size_entry)
         with open(save_requests[self.upper_cmd][self.data[0]], "w") as f:
             f.write(str_out)
-        user_output.set_out("Saved to: " + save_requests[self.upper_cmd][self.data[0]], "SUC")
+        user_output.set_out("Saved to: " + save_requests[self.upper_cmd][self.data[0]], user_output.SUCCESS_OPERATION_TAG)
         save_requests[self.upper_cmd][self.data[0]] = ""
     
     def check_save(self, save_requests, user_output):
         if (self.upper_cmd in save_requests.keys()) and (len(self.data) > 0) and (self.data[0] in save_requests[self.upper_cmd].keys()) and (save_requests[self.upper_cmd][self.data[0]] != ""):
             if not self.success_checksum:
-                user_output.set_out("CHECKSUM ERROR!", "INF")
+                user_output.set_out("CHECKSUM ERROR!", user_output.PACKET_ERROR_TAG)
                 return
             single_byte_saves = {
                 GBridge.GBRIDGE_CMD_DEBUG_INFO : {GBridgeDebugCommands.CMD_DEBUG_INFO_CFG},
@@ -229,7 +234,7 @@ class GBridgeCommand:
             if self.data[0] in single_byte_saves[self.upper_cmd]:
                 with open(save_requests[self.upper_cmd][self.data[0]], "wb") as f:
                     f.write(bytes(self.data[1:]))
-                user_output.set_out("Saved to: " + save_requests[self.upper_cmd][self.data[0]], "SUC")
+                user_output.set_out("Saved to: " + save_requests[self.upper_cmd][self.data[0]], user_output.SUCCESS_OPERATION_TAG)
                 save_requests[self.upper_cmd][self.data[0]] = ""
             if self.data[0] in uint8_t_saves[self.upper_cmd]:
                 self.save_x_size(save_requests, 1)
@@ -312,6 +317,21 @@ class GBridgeTimeResolution:
         
         # Too small, too big, or too many decimals
         return []
+
+class VersionData:
+    MAJOR_LENGTH = 2
+    MINOR_LENGTH = 1
+    PATCH_LENGTH = 1
+
+    VERSION_LENGTH = MAJOR_LENGTH + MINOR_LENGTH + PATCH_LENGTH
+    
+    def __init__(self, data):
+        self.major = int.from_bytes(data[:VersionData.MAJOR_LENGTH], byteorder='big')
+        self.minor = int.from_bytes(data[VersionData.MAJOR_LENGTH:VersionData.MAJOR_LENGTH+VersionData.MINOR_LENGTH], byteorder='big')
+        self.patch = int.from_bytes(data[VersionData.MAJOR_LENGTH+VersionData.MINOR_LENGTH:VersionData.MAJOR_LENGTH+VersionData.MINOR_LENGTH+VersionData.PATCH_LENGTH], byteorder='big')
+    
+    def __str__(self):
+        return str(self.major) + "." + str(self.minor) + "." + str(self.patch)
 
 class GBridge:
     GBRIDGE_CMD_DEBUG_LINE = 0x02
@@ -430,8 +450,7 @@ class GBridgeDebugCommands:
     UPDATE_DNS2_CMD = 6
     UPDATE_P2P_PORT_CMD = 7
     UPDATE_DEVICE_CMD = 8
-    SEND_NAME_INFO_CMD = 9
-    SEND_OTHER_INFO_CMD = 10
+    SEND_IMPL_INFO_CMD = 10
     STOP_CMD = 11
     START_CMD = 12
     STATUS_CMD = 13
@@ -444,8 +463,7 @@ class GBridgeDebugCommands:
     UPDATE_GBRIDGE_CFG_CMD = 20
 
     CMD_DEBUG_INFO_CFG = 0x01
-    CMD_DEBUG_INFO_NAME = 0x02
-    CMD_DEBUG_INFO_OTHER = 0x03
+    CMD_DEBUG_INFO_IMPL = 0x03
     CMD_DEBUG_INFO_STATUS = 0x04
     CMD_DEBUG_INFO_NUMBER = 0x05
     CMD_DEBUG_INFO_NUMBER_PEER = 0x06
@@ -523,8 +541,7 @@ class GBridgeDebugCommands:
         UPDATE_DNS2_CMD: send_preprocessed_data,
         UPDATE_P2P_PORT_CMD: unsigned_command,
         UPDATE_DEVICE_CMD: byte_command,
-        SEND_NAME_INFO_CMD: single_command,
-        SEND_OTHER_INFO_CMD: single_command,
+        SEND_IMPL_INFO_CMD: single_command,
         STOP_CMD: single_command,
         START_CMD: single_command,
         STATUS_CMD: single_command,
@@ -566,6 +583,9 @@ class GBridgeSocket:
     MOBILE_ADDRTYPE_IPV4 = 1
     MOBILE_ADDRTYPE_IPV6 = 2
     MOBILE_MAX_CONNECTIONS = 2
+    
+    AUTO_STR = "DEFAULT"
+    NULL_STR = "NULL"
     
     def read_addr(data):
         if len(data) < 1:
@@ -618,7 +638,7 @@ class GBridgeSocket:
             value = int(token.upper().strip())
         except:
             pass
-        if (token.upper().strip() == "AUTO") and (command in GBridgeDebugCommands.auto_unsigned_values.keys()):
+        if (token.upper().strip() == GBridgeSocket.AUTO_STR) and (command in GBridgeDebugCommands.auto_unsigned_values.keys()):
             value = GBridgeDebugCommands.auto_unsigned_values[command]
         if value is not None:
             if (value < 0) or (value >= 65536):
@@ -634,7 +654,7 @@ class GBridgeSocket:
         port_str = tokens[0].upper().strip()
         type_conn = GBridgeSocket.MOBILE_ADDRTYPE_NONE
         port = GBridgeSocket.parse_unsigned(command, port_str)
-        if port_str == "NULL":
+        if port_str == GBridgeSocket.NULL_STR:
             port = -1
         if port is not None:
             if port == -1:
@@ -674,7 +694,7 @@ class GBridgeSocket:
     
     def open(self, data):
         if self.debug_prints:
-            self.user_output.set_out("OPEN", "DBG")
+            self.user_output.set_out("OPEN", self.user_output.SOCKET_DEBUG_TAG)
         if(len(data) < 5):
             return False
 
@@ -716,7 +736,7 @@ class GBridgeSocket:
             sock.bind(('', socket.htons(bindport)))
         except Exception as e:
             if self.print_exception:
-                self.user_output.set_out(e, "EXC")
+                self.user_output.set_out(e, self.user_output.EXCEPTION_TAG)
             return False
 
         self.socket[conn] = sock;
@@ -726,7 +746,7 @@ class GBridgeSocket:
     
     def close(self, data):
         if self.debug_prints:
-            self.user_output.set_out("CLOSE", "DBG")
+            self.user_output.set_out("CLOSE", self.user_output.SOCKET_DEBUG_TAG)
         if(len(data) < 1):
             return False
 
@@ -748,7 +768,7 @@ class GBridgeSocket:
     
     def connect(self, data):
         if self.debug_prints:
-            self.user_output.set_out("CONNECT", "DBG")
+            self.user_output.set_out("CONNECT", self.user_output.SOCKET_DEBUG_TAG)
         if(len(data) < 2):
             return -1
 
@@ -781,13 +801,13 @@ class GBridgeSocket:
                         processed = True
                 if not processed:
                     if self.print_exception:
-                        self.user_output.set_out(e, "EXC")
+                        self.user_output.set_out(e, self.user_output.EXCEPTION_TAG)
                     return -1
         return 1
     
     def listen(self, data):
         if self.debug_prints:
-            self.user_output.set_out("LISTEN", "DBG")
+            self.user_output.set_out("LISTEN", self.user_output.SOCKET_DEBUG_TAG)
         if(len(data) < 1):
             return False
 
@@ -803,13 +823,13 @@ class GBridgeSocket:
             self.socket[conn].listen(1)
         except Exception as e:
             if self.print_exception:
-                self.user_output.set_out(e, "EXC")
+                self.user_output.set_out(e, self.user_output.EXCEPTION_TAG)
             return False
         return True
     
     def accept(self, data):
         if self.debug_prints:
-            self.user_output.set_out("ACCEPT", "DBG")
+            self.user_output.set_out("ACCEPT", self.user_output.SOCKET_DEBUG_TAG)
         if(len(data) < 1):
             return False
 
@@ -829,13 +849,13 @@ class GBridgeSocket:
             self.socket[conn] = new_sock
         except Exception as e:
             if self.print_exception:
-                self.user_output.set_out(e, "EXC")
+                self.user_output.set_out(e, self.user_output.EXCEPTION_TAG)
             return False
         return True
     
     def send(self, data, stream):
         if self.debug_prints:
-            self.user_output.set_out("SEND", "DBG")
+            self.user_output.set_out("SEND", self.user_output.SOCKET_DEBUG_TAG)
         if(len(data) < 2):
             return -1
         
@@ -858,7 +878,7 @@ class GBridgeSocket:
                 sent = self.socket[conn].sendto(bytes(stream), 0, conn_data)
         except Exception as e:
             if self.print_exception:
-                self.user_output.set_out(e, "EXC")
+                self.user_output.set_out(e, self.user_output.EXCEPTION_TAG)
             return -1
         return int(sent)
     
@@ -897,7 +917,7 @@ class GBridgeSocket:
                     processed = True
             if not processed:
                 if self.print_exception:
-                    self.user_output.set_out(e, "EXC")
+                    self.user_output.set_out(e, self.user_output.EXCEPTION_TAG)
                 return -1
 
         if not is_valid:
@@ -906,7 +926,7 @@ class GBridgeSocket:
     
     def recv(self, data):
         if self.debug_prints:
-            self.user_output.set_out("RECV", "DBG")
+            self.user_output.set_out("RECV", self.user_output.SOCKET_DEBUG_TAG)
         result = self.run_recv(data)
         try:
             data = result[0]

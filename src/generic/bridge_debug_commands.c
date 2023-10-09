@@ -22,8 +22,7 @@ enum bridge_debug_command_id {
     UPDATE_DNS2_CMD = 6,
     UPDATE_P2P_PORT_CMD = 7,
     UPDATE_DEVICE_CMD = 8,
-    SEND_NAME_INFO_CMD = 9,
-    SEND_OTHER_INFO_CMD = 10,
+    SEND_IMPL_INFO_CMD = 10,
     STOP_CMD = 11,
     START_CMD = 12,
     STATUS_CMD = 13,
@@ -38,8 +37,7 @@ enum bridge_debug_command_id {
 
 enum bridge_debug_command_info_id {
     CMD_DEBUG_INFO_CFG = 0x01,
-    CMD_DEBUG_INFO_NAME = 0x02,
-    CMD_DEBUG_INFO_OTHER = 0x03,
+    CMD_DEBUG_INFO_IMPL = 0x03,
     CMD_DEBUG_INFO_STATUS = 0x04,
     CMD_DEBUG_INFO_NUMBER = 0x05,
     CMD_DEBUG_INFO_NUMBER_PEER = 0x06,
@@ -65,7 +63,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
     struct mobile_user* mobile = get_mobile_user();
     struct mobile_addr target_addr;
     uint8_t data_out[MAX_NEEDED_DEBUG_SIZE + 1];
-    unsigned data_out_len;
+    size_t data_out_len;
     unsigned addrsize;
     uint8_t flag;
 
@@ -76,6 +74,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
     if(!check_checksum(src, size, end_of_data))
         return;
 
+    memset(data_out, 0, MAX_NEEDED_DEBUG_SIZE + 1);
     size -= DEBUG_COMMAND_ID_SIZE;    
 
     switch(cmd) {
@@ -104,14 +103,16 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             data_out[1] = flag;
             debug_send(data_out, 2, GBRIDGE_CMD_DEBUG_INFO);
             break;
-        case SEND_NAME_INFO_CMD:
-            data_out[0] = CMD_DEBUG_INFO_NAME;
-            data_out_len = 1 + snprintf(data_out + 1, MAX_NEEDED_DEBUG_SIZE, IMPLEMENTATION_NAME);
-            debug_send(data_out, data_out_len, GBRIDGE_CMD_DEBUG_INFO);
-            break;
-        case SEND_OTHER_INFO_CMD:
-            data_out[0] = CMD_DEBUG_INFO_OTHER;
-            data_out_len = 1 + snprintf(data_out + 1, MAX_NEEDED_DEBUG_SIZE, "%u.%u.%u :: " IMPLEMENTATION_VERSION, mobile_version_major, mobile_version_minor, mobile_version_patch);
+        case SEND_IMPL_INFO_CMD:
+            data_out[0] = CMD_DEBUG_INFO_IMPL;
+            data_out_len = 1;
+
+            write_big_endian(data_out + data_out_len, mobile_version, sizeof(mobile_version));
+            data_out_len += sizeof(mobile_version);
+            write_big_endian(data_out + data_out_len, IMPLEMENTATION_VERSION, IMPLEMENTATION_VERSION_SIZE);
+            data_out_len += IMPLEMENTATION_VERSION_SIZE;
+            data_out_len += snprintf(data_out + data_out_len, MAX_NEEDED_DEBUG_SIZE - data_out_len, IMPLEMENTATION_NAME);
+
             debug_send(data_out, data_out_len, GBRIDGE_CMD_DEBUG_INFO);
             break;
         case SEND_NUMBER_OWN_CMD:
@@ -194,8 +195,9 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             bool unmetered = data[0] & 0x80 ? true : false;
             enum mobile_adapter_device device = data[0] & 0x7F;
             
-            if((device != MOBILE_ADAPTER_BLUE) && (device != MOBILE_ADAPTER_RED) && (device != MOBILE_ADAPTER_YELLOW) && (device != MOBILE_ADAPTER_GREEN))
-                return;
+            // Allow any value for device
+            //if((device != MOBILE_ADAPTER_BLUE) && (device != MOBILE_ADAPTER_RED) && (device != MOBILE_ADAPTER_YELLOW) && (device != MOBILE_ADAPTER_GREEN))
+            //    return;
             
             mobile_config_set_device(mobile->adapter, device, unmetered);
             mobile_config_save(mobile->adapter);

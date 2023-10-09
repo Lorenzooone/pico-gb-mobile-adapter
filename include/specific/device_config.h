@@ -7,7 +7,13 @@
 
 // Output to PC, change these three defines for your implementation/version
 #define IMPLEMENTATION_NAME "PICO-USB-SM"
-#define IMPLEMENTATION_VERSION "1.0.0"
+
+#define IMPLEMENTATION_VERSION_SIZE 4
+#define IMPLEMENTATION_VERSION_MAJOR 1
+#define IMPLEMENTATION_VERSION_MINOR 0
+#define IMPLEMENTATION_VERSION_PATCH 0
+
+#define IMPLEMENTATION_VERSION ((IMPLEMENTATION_VERSION_MAJOR << 16) | (IMPLEMENTATION_VERSION_MINOR << 8) | IMPLEMENTATION_VERSION_PATCH)
 
 // If your implementation cannot save,
 // removing this define will make it work regardless.
