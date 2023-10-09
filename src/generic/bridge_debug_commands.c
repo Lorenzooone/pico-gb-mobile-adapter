@@ -22,6 +22,7 @@ enum bridge_debug_command_id {
     UPDATE_DNS2_CMD = 6,
     UPDATE_P2P_PORT_CMD = 7,
     UPDATE_DEVICE_CMD = 8,
+    GET_NUMBER_STATUS_CMD = 9,
     SEND_IMPL_INFO_CMD = 10,
     STOP_CMD = 11,
     START_CMD = 12,
@@ -32,11 +33,13 @@ enum bridge_debug_command_id {
     SET_SAVE_STYLE_CMD = 17,
     FORCE_SAVE_CMD = 18,
     SEND_GBRIDGE_CFG_CMD = 19,
-    UPDATE_GBRIDGE_CFG_CMD = 20
+    UPDATE_GBRIDGE_CFG_CMD = 20,
+    ASK_NUMBER_CMD = 21
 };
 
 enum bridge_debug_command_info_id {
     CMD_DEBUG_INFO_CFG = 0x01,
+    CMD_DEBUG_INFO_NUM_STATUS = 0x02,
     CMD_DEBUG_INFO_IMPL = 0x03,
     CMD_DEBUG_INFO_STATUS = 0x04,
     CMD_DEBUG_INFO_NUMBER = 0x05,
@@ -158,6 +161,19 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 mobile_config_load(mobile->adapter);
 
             debug_send_ack(cmd);
+
+            break;
+        case ASK_NUMBER_CMD:
+            // Put the future libmobile call here
+
+            debug_send_ack(cmd);
+
+            break;
+        case GET_NUMBER_STATUS_CMD:
+            data_out[0] = CMD_DEBUG_INFO_NUM_STATUS;
+            // Put the future libmobile call here
+
+            debug_send(data_out, 2, GBRIDGE_CMD_DEBUG_INFO);
 
             break;
         case STOP_CMD:

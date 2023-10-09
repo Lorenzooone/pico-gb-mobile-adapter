@@ -39,6 +39,7 @@ class UserOutput:
     VERSION_MOBILE_TAG = "VRM"
     VERSION_IMPLEMENTATION_TAG = "VRI"
     ADAPTER_NAME_TAG = "NAM"
+    NUMBER_REQUEST_STATE_TAG = "NRS"
 
     def __init__(self):
         pass
@@ -237,6 +238,8 @@ class FullInputCommands:
         "GET INFO": InputCommand(GBridgeDebugCommands.SEND_IMPL_INFO_CMD, "Gets information about the Adapter"),
         "GET NUMBER": InputCommand(GBridgeDebugCommands.SEND_NUMBER_OWN_CMD, "Gets the current number of the Adapter"),
         "GET NUMBER_PEER": InputCommand(GBridgeDebugCommands.SEND_NUMBER_OTHER_CMD, "Gets the number of the other player"),
+        "ASK NUMBER": InputCommand(GBridgeDebugCommands.ASK_NUMBER_CMD, "Requests the number, if it previously failed", show_in_all=False),
+        "GET NUMBER_STATUS": InputCommand(GBridgeDebugCommands.GET_NUMBER_STATUS_CMD, "Gets the state of the number request", show_in_all=False),
         "GET RELAY_TOKEN": InputCommand(GBridgeDebugCommands.SEND_RELAY_TOKEN_CMD, "Gets the Relay Token (DO NOT SHARE)"),
         "GET GBRIDGE": InputCommand(GBridgeDebugCommands.SEND_GBRIDGE_CFG_CMD, "Gets the GBridge Configuration", show_in_all=False),
         "FORCE SAVE": InputCommand(GBridgeDebugCommands.FORCE_SAVE_CMD, "Enforces a data save")

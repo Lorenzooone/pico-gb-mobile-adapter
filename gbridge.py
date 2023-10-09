@@ -139,6 +139,9 @@ class GBridgeCommand:
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_CFG:
                 if not found:
                     user_output.set_out(GBridgeCommand.prepare_hex_list_str(self.data[1:]), user_output.UNHANDLED_INFO_DIRECT_TAG)
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NUM_STATUS:
+                # Will need to handle it once libmobile has the function
+                user_output.set_out(self.data[1:], user_output.NUMBER_REQUEST_STATE_TAG)
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_IMPL:
                 version_mobile = VersionData(self.data[1:VersionData.VERSION_LENGTH])
                 version_implementation = VersionData(self.data[1+VersionData.VERSION_LENGTH:1+(2*VersionData.VERSION_LENGTH)])
@@ -450,6 +453,7 @@ class GBridgeDebugCommands:
     UPDATE_DNS2_CMD = 6
     UPDATE_P2P_PORT_CMD = 7
     UPDATE_DEVICE_CMD = 8
+    GET_NUMBER_STATUS_CMD = 9
     SEND_IMPL_INFO_CMD = 10
     STOP_CMD = 11
     START_CMD = 12
@@ -461,8 +465,10 @@ class GBridgeDebugCommands:
     FORCE_SAVE_CMD = 18
     SEND_GBRIDGE_CFG_CMD = 19
     UPDATE_GBRIDGE_CFG_CMD = 20
+    ASK_NUMBER_CMD = 21
 
     CMD_DEBUG_INFO_CFG = 0x01
+    CMD_DEBUG_INFO_NUM_STATUS = 0x02
     CMD_DEBUG_INFO_IMPL = 0x03
     CMD_DEBUG_INFO_STATUS = 0x04
     CMD_DEBUG_INFO_NUMBER = 0x05
@@ -541,6 +547,7 @@ class GBridgeDebugCommands:
         UPDATE_DNS2_CMD: send_preprocessed_data,
         UPDATE_P2P_PORT_CMD: unsigned_command,
         UPDATE_DEVICE_CMD: byte_command,
+        ASK_NUMBER_CMD: single_command,
         SEND_IMPL_INFO_CMD: single_command,
         STOP_CMD: single_command,
         START_CMD: single_command,
@@ -551,7 +558,8 @@ class GBridgeDebugCommands:
         SET_SAVE_STYLE_CMD: byte_command,
         FORCE_SAVE_CMD: single_command,
         SEND_GBRIDGE_CFG_CMD: single_command,
-        UPDATE_GBRIDGE_CFG_CMD: send_preprocessed_data
+        UPDATE_GBRIDGE_CFG_CMD: send_preprocessed_data,
+        GET_NUMBER_STATUS_CMD: single_command
     }
     
     auto_unsigned_values = {
@@ -573,7 +581,8 @@ class GBridgeDebugCommands:
         START_CMD,
         SET_SAVE_STYLE_CMD,
         FORCE_SAVE_CMD,
-        UPDATE_GBRIDGE_CFG_CMD
+        UPDATE_GBRIDGE_CFG_CMD,
+        ASK_NUMBER_CMD
     }
 
 class GBridgeSocket:
