@@ -3,7 +3,7 @@ import sys
 import traceback
 import time
 from time import sleep
-from gbridge import GBridge, GBridgeSocket, GBridgeDebugCommands
+from gbridge import GBridge, GBridgeSocket, GBridgeDebugCommands, GBridgeTimeResolution
 import os
 
 import threading
@@ -213,7 +213,8 @@ class FullInputCommands:
         "GET NUMBER": InputCommand(GBridgeDebugCommands.SEND_NUMBER_OWN_CMD, "Gets the current number of the Adapter"),
         "GET NUMBER_PEER": InputCommand(GBridgeDebugCommands.SEND_NUMBER_OTHER_CMD, "Gets the number of the other player"),
         "GET RELAY_TOKEN": InputCommand(GBridgeDebugCommands.SEND_RELAY_TOKEN_CMD, "Gets the Relay Token (DO NOT SHARE)"),
-        "FORCE SAVE": InputCommand(GBridgeDebugCommands.FORCE_SAVE_CMD, "Enforces a data save")
+        "FORCE SAVE": InputCommand(GBridgeDebugCommands.FORCE_SAVE_CMD, "Enforces a data save"),
+        "GET GBRIDGE": InputCommand(GBridgeDebugCommands.SEND_GBRIDGE_CFG_CMD, "Gets the GBridge Configuration")
     }
     
     on_off_commands = {
@@ -226,6 +227,14 @@ class FullInputCommands:
     
     unsigned_commands = {
         "SET P2P_PORT": InputCommand(GBridgeDebugCommands.UPDATE_P2P_PORT_CMD, "Sets the port used for direct P2P", valid_inputs = [[True, "port_number", "AUTO"]])
+    }
+    
+    byte_commands = {
+        "SET GBRIDGE_TRIES": InputCommand(GBridgeDebugCommands.UPDATE_GBRIDGE_CFG_CMD, "Sets the maximum number of tries for GBridge (0 = Infinite, 255 = Limit)", valid_inputs = [[True, "tries_number"]])
+    }
+    
+    time_commands = {
+        "SET GBRIDGE_TIMEOUT": InputCommand(GBridgeDebugCommands.UPDATE_GBRIDGE_CFG_CMD, "Sets the maximum time before timeout for GBridge (0 = Infinite)", valid_inputs = [[True, "timeout_time_seconds"]])
     }
     
     token_commands = {
@@ -254,8 +263,11 @@ class FullInputCommands:
     full_commands = [
         basic_commands,
         on_off_commands,
+        byte_commands,
+        time_commands,
         mobile_adapter_commands,
         address_commands,
+        unsigned_commands,
         token_commands,
         saving_commands,
         loading_commands
@@ -347,6 +359,29 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
                     success = True
                 if(tokens[2].upper().strip() == "OFF"):
                     add_result_debug_commands(FullInputCommands.on_off_commands[command].to_send_cmd, 0, debug_send_list, ack_requests)
+                    success = True
+
+            if command in FullInputCommands.byte_commands.keys():
+                value = None
+                try:
+                    value = int(tokens[2].upper().strip())
+                    if (value < 0) or (value > 255):
+                        value = None
+                except:
+                    pass
+                if(value is not None):
+                    add_result_debug_commands(FullInputCommands.byte_commands[command].to_send_cmd, [2] + [value], debug_send_list, ack_requests)
+                    success = True
+
+            if command in FullInputCommands.time_commands.keys():
+                data = []
+                try:
+                    time_got = GBridgeTimeResolution(float(tokens[2].upper().strip()))
+                    data = time_got.time_to_data()
+                except:
+                    pass
+                if len(data) > 0:
+                    add_result_debug_commands(FullInputCommands.time_commands[command].to_send_cmd, [1] + data, debug_send_list, ack_requests)
                     success = True
 
             if command in FullInputCommands.token_commands.keys():

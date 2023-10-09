@@ -170,6 +170,10 @@ class GBridgeCommand:
                     else:
                         str_out += bytes(self.data[2:]).hex().upper()
                     user_output.set_out(str_out, "TOK")
+            if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_GBRIDGE_CFG:
+                time_got = GBridgeTimeResolution.time_from_data(self.data[1:])
+                num_retries = self.data[1 + GBridgeTimeResolution.TOTAL_LENGTH]
+                user_output.set_out("TIMEOUT: " + str(time_got.requested_time) + " (s), NUM_TRIES: " + str(num_retries), "GBR")
         if self.upper_cmd == GBridge.GBRIDGE_CMD_DEBUG_ACK:
             if len(self.data) <= 0:
                 user_output.set_out("SIZE ERROR!", "INF")
@@ -246,7 +250,68 @@ class GBridgeCommand:
         string_out = string_out[: -2]
         string_out += "]"
         return string_out
+
+class GBridgeTimeResolution:
+    RESOLUTION_SECONDS = 0
+    RESOLUTION_MILLI_SECONDS = 1
+    RESOLUTION_MICRO_SECONDS = 2
+    RESOLUTION_NANO_SECONDS = 3
+    RESOLUTION_PICO_SECONDS = 4
+    RESOLUTION_MINUTES = 5
+    RESOLUTION_HOURS = 6
+    
+    TIME_LENGTH = 8
+    TOTAL_LENGTH = 1 + TIME_LENGTH
+    
+    valid_resolutions = {
+        RESOLUTION_SECONDS: 1.0,
+        RESOLUTION_MILLI_SECONDS: 0.001,
+        RESOLUTION_MICRO_SECONDS: 0.000001,
+        RESOLUTION_NANO_SECONDS: 0.000000001,
+        RESOLUTION_PICO_SECONDS: 0.000000000001,
+        RESOLUTION_HOURS: 3600.0,
+        RESOLUTION_MINUTES: 60.0
+    }
+    
+    valid_resolutions_ordered = [
+        RESOLUTION_HOURS,
+        RESOLUTION_MINUTES,
+        RESOLUTION_SECONDS,
+        RESOLUTION_MILLI_SECONDS,
+        RESOLUTION_MICRO_SECONDS,
+        RESOLUTION_NANO_SECONDS,
+        RESOLUTION_PICO_SECONDS
+    ]
+    
+    def __init__(self, requested_time):
+        self.requested_time = requested_time
+    
+    def time_from_data(data):
+        if len(data) < (1 + GBridgeTimeResolution.TIME_LENGTH):
+            return None
+        resolution = data[0]
+        if resolution not in GBridgeTimeResolution.valid_resolutions.keys():
+            return None
+        value = int.from_bytes(data[1: 1 + GBridgeTimeResolution.TIME_LENGTH], byteorder='big')
+        return GBridgeTimeResolution(value * GBridgeTimeResolution.valid_resolutions[resolution])
+
+    def time_to_data(self):
+        if self.requested_time == 0:
+            int_value = 0
+            return [GBridgeTimeResolution.RESOLUTION_SECONDS] + list(int_value.to_bytes(GBridgeTimeResolution.TIME_LENGTH, byteorder='big'))
+
+        for i in range(len(GBridgeTimeResolution.valid_resolutions_ordered)):
+            resolution = GBridgeTimeResolution.valid_resolutions_ordered[i]
+            value = self.requested_time / GBridgeTimeResolution.valid_resolutions[resolution]
+            if value.is_integer():
+                int_value = int(value)
+                result = [resolution] + list(int_value.to_bytes(GBridgeTimeResolution.TIME_LENGTH, byteorder='big'))
+                re_converted = GBridgeTimeResolution.time_from_data(result)
+                if re_converted.requested_time == self.requested_time:
+                    return result
         
+        # Too small, too big, or too many decimals
+        return []
 
 class GBridge:
     GBRIDGE_CMD_DEBUG_LINE = 0x02
@@ -375,6 +440,8 @@ class GBridgeDebugCommands:
     SEND_RELAY_TOKEN_CMD = 16
     SET_SAVE_STYLE_CMD = 17
     FORCE_SAVE_CMD = 18
+    SEND_GBRIDGE_CFG_CMD = 19
+    UPDATE_GBRIDGE_CFG_CMD = 20
 
     CMD_DEBUG_INFO_CFG = 0x01
     CMD_DEBUG_INFO_NAME = 0x02
@@ -383,6 +450,7 @@ class GBridgeDebugCommands:
     CMD_DEBUG_INFO_NUMBER = 0x05
     CMD_DEBUG_INFO_NUMBER_PEER = 0x06
     CMD_DEBUG_INFO_RELAY_TOKEN = 0x07
+    CMD_DEBUG_INFO_GBRIDGE_CFG = 0x08
     
     CMD_DEBUG_LOG_IN = 0x01
     CMD_DEBUG_LOG_OUT = 0x02
@@ -464,7 +532,9 @@ class GBridgeDebugCommands:
         SEND_NUMBER_OTHER_CMD: single_command,
         SEND_RELAY_TOKEN_CMD: single_command,
         SET_SAVE_STYLE_CMD: byte_command,
-        FORCE_SAVE_CMD: single_command
+        FORCE_SAVE_CMD: single_command,
+        SEND_GBRIDGE_CFG_CMD: single_command,
+        UPDATE_GBRIDGE_CFG_CMD: send_preprocessed_data
     }
     
     auto_unsigned_values = {
@@ -485,7 +555,8 @@ class GBridgeDebugCommands:
         STOP_CMD,
         START_CMD,
         SET_SAVE_STYLE_CMD,
-        FORCE_SAVE_CMD
+        FORCE_SAVE_CMD,
+        UPDATE_GBRIDGE_CFG_CMD
     }
 
 class GBridgeSocket:

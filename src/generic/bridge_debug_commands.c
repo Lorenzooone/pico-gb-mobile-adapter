@@ -5,6 +5,7 @@
 #include "device_config.h"
 #include "pico_mobile_adapter.h"
 #include "bridge_debug_commands.h"
+#include "gbridge_timeout.h"
 #include "save_load_config.h"
 #include "utils.h"
 
@@ -30,7 +31,9 @@ enum bridge_debug_command_id {
     SEND_NUMBER_OTHER_CMD = 15,
     SEND_RELAY_TOKEN_CMD = 16,
     SET_SAVE_STYLE_CMD = 17,
-    FORCE_SAVE_CMD = 18
+    FORCE_SAVE_CMD = 18,
+    SEND_GBRIDGE_CFG_CMD = 19,
+    UPDATE_GBRIDGE_CFG_CMD = 20
 };
 
 enum bridge_debug_command_info_id {
@@ -40,7 +43,8 @@ enum bridge_debug_command_info_id {
     CMD_DEBUG_INFO_STATUS = 0x04,
     CMD_DEBUG_INFO_NUMBER = 0x05,
     CMD_DEBUG_INFO_NUMBER_PEER = 0x06,
-    CMD_DEBUG_INFO_RELAY_TOKEN = 0x07
+    CMD_DEBUG_INFO_RELAY_TOKEN = 0x07,
+    CMD_DEBUG_INFO_GBRIDGE_CFG = 0x08
 };
 
 void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size, bool is_in_mobile_loop) {
@@ -263,6 +267,43 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 mobile_config_set_relay_token(mobile->adapter, NULL);
 
             mobile_config_save(mobile->adapter);
+            debug_send_ack(cmd);
+
+            break;
+        case SEND_GBRIDGE_CFG_CMD:
+            data_out[0] = CMD_DEBUG_INFO_GBRIDGE_CFG;
+            data_out[1] = get_timeout_resolution();
+            write_big_endian(data_out + 1 + 1, get_timeout_time(), sizeof(timeout_time_t));
+            write_big_endian(data_out + 1 + 1 + sizeof(timeout_time_t), get_num_retries(), sizeof(num_retries_t));
+
+            debug_send(data_out, 1 + 1 + sizeof(timeout_time_t) + sizeof(num_retries_t), GBRIDGE_CMD_DEBUG_INFO);
+            break;
+        case UPDATE_GBRIDGE_CFG_CMD:
+            if(size < 1)
+                return;
+
+            uint8_t kind = data[0] & 3;
+            size -= 1;
+            uint8_t data_offset = 1;
+            
+            if(kind & 1) {
+                if(size < 1 + sizeof(timeout_time_t))
+                    return;
+                set_timeout_time(read_big_endian(data + data_offset + 1, sizeof(timeout_time_t)), data[data_offset]);
+                
+                data_offset += 1 + sizeof(timeout_time_t);
+                size -= 1 + sizeof(timeout_time_t);
+            }
+            
+            if(kind & 2) {
+                if(size < sizeof(num_retries_t))
+                    return;
+                set_num_retries(read_big_endian(data + data_offset, sizeof(num_retries_t)));
+                
+                data_offset += sizeof(num_retries_t);
+                size -= sizeof(num_retries_t);
+            }
+
             debug_send_ack(cmd);
 
             break;

@@ -3,21 +3,24 @@
 
 #include "utils.h"
 
-uint32_t read_big_endian(const uint8_t* buffer, uint32_t size) {
-    if(size > 4)
+uint64_t read_big_endian(const uint8_t* buffer, size_t size) {
+    if(size > 8)
         return 0;
-    uint32_t result = 0;
-    for(int i = 0; i < size; i++)
-        result |= buffer[i] << ((size - (i + 1)) * 8);
+    uint64_t result = 0;
+    for(size_t i = 0; i < size; i++) {
+        result <<= 8;
+        result |= buffer[i];
+    }
     return result;
 }
 
-void write_big_endian(uint8_t* buffer, uint32_t data, uint32_t size) {
-    if(size > 4)
+void write_big_endian(uint8_t* buffer, uint64_t data, size_t size) {
+    if(size > 8)
         return;
-    uint32_t result = 0;
-    for(int i = 0; i < size; i++)
-        buffer[i] = (data >> ((size - (i + 1)) * 8)) & 0xFF;
+    for(int i = 0; i < size; i++) {
+        buffer[size - (i + 1)] = data & 0xFF;
+        data >>= 8;
+    }
 }
 
 uint16_t calc_checksum(const uint8_t* buffer, uint32_t size) {

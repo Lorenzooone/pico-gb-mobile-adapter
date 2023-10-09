@@ -3,8 +3,8 @@
 
 #include <mobile.h>
 
-uint32_t read_big_endian(const uint8_t* buffer, uint32_t size);
-void write_big_endian(uint8_t* buffer, uint32_t data, uint32_t size);
+uint64_t read_big_endian(const uint8_t* buffer, size_t size);
+void write_big_endian(uint8_t* buffer, uint64_t data, size_t size);
 
 uint16_t calc_checksum(const uint8_t* buffer, uint32_t size);
 void set_checksum(const uint8_t* buffer, uint32_t size, uint8_t* checksum_buffer);
