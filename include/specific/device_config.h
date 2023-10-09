@@ -8,7 +8,6 @@
 // Output to PC, change these three defines for your implementation/version
 #define IMPLEMENTATION_NAME "PICO-USB-SM"
 #define IMPLEMENTATION_VERSION "1.0.0"
-#define LIBMOBILE_VERSION "1.0.0"
 
 // If your implementation cannot save,
 // removing this define will make it work regardless.

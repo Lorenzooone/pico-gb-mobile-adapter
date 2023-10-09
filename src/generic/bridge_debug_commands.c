@@ -111,7 +111,7 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             break;
         case SEND_OTHER_INFO_CMD:
             data_out[0] = CMD_DEBUG_INFO_OTHER;
-            data_out_len = 1 + snprintf(data_out + 1, MAX_NEEDED_DEBUG_SIZE, LIBMOBILE_VERSION " :: " IMPLEMENTATION_VERSION);
+            data_out_len = 1 + snprintf(data_out + 1, MAX_NEEDED_DEBUG_SIZE, "%u.%u.%u :: " IMPLEMENTATION_VERSION, mobile_version_major, mobile_version_minor, mobile_version_patch);
             debug_send(data_out, data_out_len, GBRIDGE_CMD_DEBUG_INFO);
             break;
         case SEND_NUMBER_OWN_CMD:
