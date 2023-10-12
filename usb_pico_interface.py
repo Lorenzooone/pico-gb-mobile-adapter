@@ -227,7 +227,11 @@ class FullInputCommands:
         "BLUE": 8,
         "YELLOW": 9,
         "GREEN": 10,
-        "RED": 11
+        "RED": 11,
+        "PURPLE": 12,
+        "BLACK": 13,
+        "PINK": 14,
+        "GREY": 15
     }
 
     basic_commands = {
