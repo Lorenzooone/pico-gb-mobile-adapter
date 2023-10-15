@@ -4,6 +4,7 @@ import traceback
 import time
 from time import sleep
 from gbridge import GBridge, GBridgeSocket, GBridgeDebugCommands, GBridgeTimeResolution
+from mobile_adapter_data import MobileAdapterDeviceData
 import os
 
 import threading
@@ -27,6 +28,8 @@ class UserOutput:
     END_TAG = "END"
     USB_TAG = "USB"
     EXCEPTION_TAG = "EXC"
+    WARNING_TAG = "WRN"
+    DEVICE_TAG = "DVC"
     SOCKET_DEBUG_TAG = "SDB"
     DIRECT_OUTPUT_TAG = "DIR"
     SUCCESS_OPERATION_TAG = "SUC"
@@ -222,17 +225,6 @@ class FullInputCommands:
     UNMETERED_STRING = "UNMETERED"
     ON_STRING = "ON"
     OFF_STRING = "OFF"
-    
-    mobile_adapter_types = {
-        "BLUE": 8,
-        "YELLOW": 9,
-        "GREEN": 10,
-        "RED": 11,
-        "PURPLE": 12,
-        "BLACK": 13,
-        "PINK": 14,
-        "GREY": 15
-    }
 
     basic_commands = {
         "GET EEPROM": InputCommand(GBridgeDebugCommands.SEND_EEPROM_CMD, "Outputs the EEPROM contents", show_in_all=False),
@@ -254,7 +246,7 @@ class FullInputCommands:
     }
     
     mobile_adapter_commands = {
-        "SET DEVICE": InputCommand(GBridgeDebugCommands.UPDATE_DEVICE_CMD, "Changes the Adapter's type", valid_inputs = [[True] + list(mobile_adapter_types.keys()) + ["value"], [False, UNMETERED_STRING]])
+        "SET DEVICE": InputCommand(GBridgeDebugCommands.UPDATE_DEVICE_CMD, "Changes the Adapter's type", valid_inputs = [[True] + list(MobileAdapterDeviceData.mobile_adapter_device_types.keys()) + ["value"], [False, UNMETERED_STRING]])
     }
     
     unsigned_commands = {
@@ -376,11 +368,12 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
                 metered = True
                 if (len(tokens) > 3) and (tokens[3] == FullInputCommands.UNMETERED_STRING):
                     metered = False
-                if (value is None) and (mobile_type in FullInputCommands.mobile_adapter_types.keys()):
-                    value = FullInputCommands.mobile_adapter_types[mobile_type]
+                if (value is None) and (mobile_type in MobileAdapterDeviceData.mobile_adapter_device_types.keys()):
+                    value = MobileAdapterDeviceData.mobile_adapter_device_types[mobile_type]
                 if value is not None:
                     if not metered:
                         value |= 0x80
+                    user_output.set_out("WARNING: You may need to restart the Game Boy entirely for this change to work!", user_output.WARNING_TAG)
                     add_result_debug_commands(FullInputCommands.mobile_adapter_commands[command].to_send_cmd, value, debug_send_list, ack_requests)
                     success = True
 

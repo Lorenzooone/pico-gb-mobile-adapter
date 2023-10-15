@@ -69,6 +69,8 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
     size_t data_out_len;
     unsigned addrsize;
     uint8_t flag;
+    bool unmetered;
+    enum mobile_adapter_device device;
 
     uint8_t cmd = src[0];
     const uint8_t* data = src + DEBUG_COMMAND_ID_SIZE;
@@ -104,7 +106,13 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
                 flag |= 4;
 #endif
             data_out[1] = flag;
-            debug_send(data_out, 2, GBRIDGE_CMD_DEBUG_INFO);
+            
+            unmetered = false;
+            device = MOBILE_ADAPTER_BLUE;            
+            mobile_config_get_device(mobile->adapter, &device, &unmetered);
+            data_out[2] = (device & 0x7F) | (unmetered ? 0x80 : 0);
+
+            debug_send(data_out, 3, GBRIDGE_CMD_DEBUG_INFO);
             break;
         case SEND_IMPL_INFO_CMD:
             data_out[0] = CMD_DEBUG_INFO_IMPL;
@@ -208,8 +216,8 @@ void interpret_debug_command(const uint8_t* src, uint8_t size, uint8_t real_size
             if(size < 1)
                 return;
 
-            bool unmetered = data[0] & 0x80 ? true : false;
-            enum mobile_adapter_device device = data[0] & 0x7F;
+            unmetered = data[0] & 0x80 ? true : false;
+            device = data[0] & 0x7F;
             
             // Allow any value for device
             //if((device != MOBILE_ADAPTER_BLUE) && (device != MOBILE_ADAPTER_RED) && (device != MOBILE_ADAPTER_YELLOW) && (device != MOBILE_ADAPTER_GREEN))

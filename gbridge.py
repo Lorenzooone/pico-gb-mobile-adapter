@@ -1,4 +1,5 @@
 from time import sleep
+from mobile_adapter_data import MobileAdapterDeviceData
 import socket
 import errno
 
@@ -166,6 +167,14 @@ class GBridgeCommand:
                 else:
                     str_status += "AUTOMATIC SAVE: OFF"
                 user_output.set_out(str_status, user_output.ADAPTER_STATUS_TAG)
+                str_device = "DEVICE: "
+                if (self.data[2] & 0x7F) in MobileAdapterDeviceData.mobile_adapter_device_reverse_types.keys():
+                    str_device += MobileAdapterDeviceData.mobile_adapter_device_reverse_types[(self.data[2] & 0x7F)]
+                else:
+                    str_device += bytes([self.data[2] & 0x7F]).hex().upper()
+                if (self.data[2] & 0x80):
+                    str_device += " UNMETERED"
+                user_output.set_out(str_device, user_output.DEVICE_TAG)
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NUMBER:
                 user_output.set_out("YOUR NUMBER: " + bytes(self.data[1:]).split(b'\0',1)[0].decode('ascii'), user_output.NUMBER_SELF_TAG)
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_NUMBER_PEER:
