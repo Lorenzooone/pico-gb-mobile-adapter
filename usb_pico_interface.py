@@ -387,6 +387,7 @@ def interpret_input_keyboard(key_input, debug_send_list, save_requests, ack_requ
                 data = GBridgeSocket.parse_addr(FullInputCommands.address_commands[command].to_send_cmd, tokens[2:])
                 if data is not None:
                     add_result_debug_commands(FullInputCommands.address_commands[command].to_send_cmd, data, debug_send_list, ack_requests)
+                    success = True
 
             if command in FullInputCommands.on_off_commands.keys():
                 if(tokens[2].upper().strip() == FullInputCommands.ON_STRING):

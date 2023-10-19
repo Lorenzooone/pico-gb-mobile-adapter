@@ -640,6 +640,10 @@ class GBridgeSocket:
 
         if type_conn == GBridgeSocket.MOBILE_ADDRTYPE_NONE:
             return [type_conn]
+
+        if isinstance(data[0], int):
+            type_conn = GBridgeSocket.MOBILE_ADDRTYPE_NONE
+            return [type_conn]
         
         if port is None:
             port = data[1]
@@ -815,6 +819,16 @@ class GBridgeSocket:
                         sleep(0.05)
                         processed = True
                     if e.errno == errno.EALREADY:
+                        sleep(0.05)
+                        processed = True
+                    if e.errno == errno.EWOULDBLOCK:
+                        sleep(0.05)
+                        processed = True
+                    if e.errno == errno.EISCONN:
+                        self.connect_socket[conn] = conn_data
+                        done = True
+                        processed = True
+                    if hasattr(errno, 'WSAEINVAL') and (e.errno == errno.WSAEINVAL):
                         sleep(0.05)
                         processed = True
                 if not processed:
