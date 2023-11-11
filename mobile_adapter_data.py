@@ -1,10 +1,21 @@
 
 class MobileAdapterDeviceData:
+    pdc_name = "BLUE"
+    cmdaone_name = "YELLOW"
+    phsnnt_name = "GREEN"
+    ddi_name = "RED"
+    
+    released_adapters = set([
+        pdc_name,
+        cmdaone_name,
+        ddi_name
+    ])
+    
     mobile_adapter_device_types = {
-        "BLUE": 8,
-        "YELLOW": 9,
-        "GREEN": 10,
-        "RED": 11,
+        pdc_name: 8,
+        cmdaone_name: 9,
+        phsnnt_name: 10,
+        ddi_name: 11,
         "PURPLE": 12,
         "BLACK": 13,
         "PINK": 14,

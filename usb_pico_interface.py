@@ -246,7 +246,7 @@ class FullInputCommands:
     }
     
     mobile_adapter_commands = {
-        "SET DEVICE": InputCommand(GBridgeDebugCommands.UPDATE_DEVICE_CMD, "Changes the Adapter's type", valid_inputs = [[True] + list(MobileAdapterDeviceData.mobile_adapter_device_types.keys()) + ["value"], [False, UNMETERED_STRING]])
+        "SET DEVICE": InputCommand(GBridgeDebugCommands.UPDATE_DEVICE_CMD, "Changes the Adapter's type", valid_inputs = [[True] + list(MobileAdapterDeviceData.released_adapters) + ["value"], [False, UNMETERED_STRING]])
     }
     
     unsigned_commands = {
