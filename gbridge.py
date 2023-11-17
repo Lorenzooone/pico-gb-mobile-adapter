@@ -144,7 +144,7 @@ class GBridgeCommand:
                 # Will need to handle it once libmobile has the function
                 user_output.set_out(self.data[1:], user_output.NUMBER_REQUEST_STATE_TAG)
             if self.data[0] == GBridgeDebugCommands.CMD_DEBUG_INFO_IMPL:
-                version_mobile = VersionData(self.data[1:VersionData.VERSION_LENGTH])
+                version_mobile = VersionData(self.data[1:1+VersionData.VERSION_LENGTH])
                 version_implementation = VersionData(self.data[1+VersionData.VERSION_LENGTH:1+(2*VersionData.VERSION_LENGTH)])
                 user_output.set_out("Libmobile version: ", user_output.TEMPORARY_TAG, end='')
                 user_output.set_out(str(version_mobile), user_output.VERSION_MOBILE_TAG)
