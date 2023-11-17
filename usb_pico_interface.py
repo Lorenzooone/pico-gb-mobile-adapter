@@ -500,32 +500,33 @@ def transfer_func(sender, receiver, list_sender, raw_receiver, pc_commands, tran
     out_data_preparer.end_processing()
 
 class LibUSBSendRecv:
-    def __init__(self, epOut, epIn, dev, reattach, max_usb_timeout):
+    def __init__(self, epOut, epIn, dev, reattach, max_usb_timeout_r, max_usb_timeout_w):
         self.epOut = epOut
         self.epIn = epIn
         self.dev = dev
         self.reattach = reattach
-        self.max_usb_timeout = max_usb_timeout
+        self.max_usb_timeout_r = max_usb_timeout_r
+        self.max_usb_timeout_w = max_usb_timeout_w
 
     # Code dependant on this connection method
     def sendByte(self, byte_to_send, num_bytes):
-        self.epOut.write(byte_to_send.to_bytes(num_bytes, byteorder='big'), timeout=self.max_usb_timeout * 1000)
+        self.epOut.write(byte_to_send.to_bytes(num_bytes, byteorder='big'), timeout=int(self.max_usb_timeout_w * 1000))
         return
 
     # Code dependant on this connection method
     def sendList(self, data, chunk_size=8):
         num_iters = int(len(data)/chunk_size)
         for i in range(num_iters):
-            self.epOut.write(data[i*chunk_size:(i+1)*chunk_size], timeout=self.max_usb_timeout * 1000)
+            self.epOut.write(data[i*chunk_size:(i+1)*chunk_size], timeout=int(self.max_usb_timeout_w * 1000))
         if (num_iters*chunk_size) != len(data):
-            self.epOut.write(data[num_iters*chunk_size:], timeout=self.max_usb_timeout * 1000)
+            self.epOut.write(data[num_iters*chunk_size:], timeout=int(self.max_usb_timeout_w * 1000))
 
     def receiveByte(self, num_bytes):
-        recv = int.from_bytes(self.epIn.read(num_bytes, timeout=self.max_usb_timeout * 1000), byteorder='big')
+        recv = int.from_bytes(self.epIn.read(num_bytes, timeout=int(self.max_usb_timeout_r * 1000)), byteorder='big')
         return recv
 
     def receiveByte_raw(self, num_bytes):
-        return self.epIn.read(num_bytes, timeout=self.max_usb_timeout * 1000)
+        return self.epIn.read(num_bytes, timeout=int(self.max_usb_timeout_r * 1000))
     
     def kill_function(self):
         import usb.util
@@ -595,7 +596,7 @@ def exit_gracefully(usb_handler):
         usb_handler.kill_function()
     os._exit(1)
 
-def libusb_method(VID, PID, max_usb_timeout, user_output):
+def libusb_method(VID, PID, max_usb_timeout_r, max_usb_timeout_w, user_output):
     import usb.core
     import usb.util
     dev = None
@@ -647,9 +648,9 @@ def libusb_method(VID, PID, max_usb_timeout, user_output):
         dev.ctrl_transfer(bmRequestType = 1, bRequest = 0x22, wIndex = 2, wValue = 0x01)
     except:
         return None
-    return LibUSBSendRecv(epOut, epIn, dev, reattach, max_usb_timeout)
+    return LibUSBSendRecv(epOut, epIn, dev, reattach, max_usb_timeout_r, max_usb_timeout_w)
 
-def winusbcdc_method(VID, PID, max_usb_timeout, user_output):
+def winusbcdc_method(VID, PID, max_usb_timeout_r, max_usb_timeout_w, user_output):
     if(os.name == "nt"):
         from winusbcdc import ComPort
         try:
@@ -658,14 +659,14 @@ def winusbcdc_method(VID, PID, max_usb_timeout, user_output):
             if not p.is_open:
                 return None
             #p.baudrate = 115200
-            p.settimeout(max_usb_timeout)
+            p.settimeout(max_usb_timeout_r)
         except:
             return None
     else:
         return None
     return WinUSBCDCSendRecv(p)
 
-def serial_method(VID, PID, max_usb_timeout, user_output):
+def serial_method(VID, PID, max_usb_timeout_r, max_usb_timeout_w, user_output):
     import serial
     import serial.tools.list_ports
     try:
@@ -679,7 +680,7 @@ def serial_method(VID, PID, max_usb_timeout, user_output):
                     break
         if port is None:
             return None
-        serial_port = serial.Serial(port=port, bytesize=8, timeout=0.05, write_timeout = max_usb_timeout)
+        serial_port = serial.Serial(port=port, bytesize=8, timeout=max_usb_timeout_r, write_timeout = max_usb_timeout_w)
     except Exception as e:
         return None
     return PySerialSendRecv(serial_port)
@@ -687,7 +688,7 @@ def serial_method(VID, PID, max_usb_timeout, user_output):
 # Initial function which sets up the USB connection and then calls the Main function.
 # Gets the ending function once the connection ends, then the USB identifiers, and the USB Timeout.
 # Also receives the user input class, the transfer state's class and the user output class.
-def start_usb_transfer(end_function, VID, PID, max_usb_timeout, pc_commands, transfer_state, user_output, do_ctrl_c_handling=False):
+def start_usb_transfer(end_function, VID, PID, max_usb_timeout_r, max_usb_timeout_w, pc_commands, transfer_state, user_output, do_ctrl_c_handling=False):
     try_serial = False
     try_libusb = False
     try_winusbcdc = False
@@ -723,11 +724,11 @@ def start_usb_transfer(end_function, VID, PID, max_usb_timeout, pc_commands, tra
     # The execution path
     try:
         if(usb_handler is None) and try_libusb:
-            usb_handler = libusb_method(VID, PID, max_usb_timeout, user_output)
-        if (usb_handler is None) and try_winusbcdc:
-            usb_handler = winusbcdc_method(VID, PID, max_usb_timeout, user_output)
+            usb_handler = libusb_method(VID, PID, max_usb_timeout_r, max_usb_timeout_w, user_output)
         if (usb_handler is None) and try_serial:
-            usb_handler = serial_method(VID, PID, max_usb_timeout, user_output)
+            usb_handler = serial_method(VID, PID, max_usb_timeout_r, max_usb_timeout_w, user_output)
+        if (usb_handler is None) and try_winusbcdc:
+            usb_handler = winusbcdc_method(VID, PID, max_usb_timeout_r, max_usb_timeout_w, user_output)
 
         if usb_handler is not None:
             user_output.set_out("USB connection established!", user_output.USB_TAG)
@@ -753,5 +754,6 @@ def start_usb_transfer(end_function, VID, PID, max_usb_timeout, pc_commands, tra
 if __name__ == "__main__":
     VID = 0xcafe
     PID = 0x4011
-    max_usb_timeout = 5
-    start_usb_transfer(exit_gracefully, VID, PID, max_usb_timeout, KeyboardThread(), TransferStatus(), UserOutput(), do_ctrl_c_handling=True)
+    max_usb_timeout_w = 5
+    max_usb_timeout_r = 0.1
+    start_usb_transfer(exit_gracefully, VID, PID, max_usb_timeout_r, max_usb_timeout_w, KeyboardThread(), TransferStatus(), UserOutput(), do_ctrl_c_handling=True)
